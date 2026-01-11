@@ -1,37 +1,30 @@
 import React, { useState } from "react";
+import { API_URL, apiFetch } from "../config";
 
 export default function Login({ onLoginSuccess }) {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("user");
   const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (!username.trim() || !password.trim()) {
+    if (!email.trim() || !password.trim()) {
       setError("Por favor, completa todos los campos");
       return;
     }
 
     try {
-      const res = await fetch("http://localhost:4000/login", {
+      const { res, data } = await apiFetch(`${API_URL}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
-        setError(data.error || "Error en el login");
+        setError(data?.error || "Error en el login");
       } else {
-        // Verificamos que el rol coincide
-        if (data.role !== role) {
-          setError(`El usuario no tiene rol de ${role}`);
-          return;
-        }
         onLoginSuccess(data);
       }
     } catch (err) {
@@ -42,16 +35,21 @@ export default function Login({ onLoginSuccess }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="max-w-sm mx-auto p-6 bg-white rounded-lg shadow-md space-y-4"
+      className="max-w-sm mx-auto p-6 rounded-2xl space-y-4 bb-card"
     >
-      <h2 className="text-2xl font-semibold text-center">Iniciar sesión</h2>
+      <div className="space-y-1 text-center">
+        <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+          Acceso DJ
+        </p>
+        <h2 className="text-2xl font-semibold bb-title">Iniciar sesión</h2>
+      </div>
 
       <input
-        type="text"
-        placeholder="Usuario"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-        className="w-full border px-3 py-2 rounded"
+        type="email"
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/60"
         required
       />
 
@@ -60,43 +58,18 @@ export default function Login({ onLoginSuccess }) {
         placeholder="Contraseña"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        className="w-full border px-3 py-2 rounded"
+        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/60"
         required
       />
 
-      <div className="flex justify-center gap-6">
-        <label>
-          <input
-            type="radio"
-            name="role"
-            value="user"
-            checked={role === "user"}
-            onChange={() => setRole("user")}
-          />
-          <span className="ml-2">Cliente</span>
-        </label>
-
-        <label>
-          <input
-            type="radio"
-            name="role"
-            value="dj"
-            checked={role === "dj"}
-            onChange={() => setRole("dj")}
-          />
-          <span className="ml-2">DJ</span>
-        </label>
-      </div>
-
-      {error && <p className="text-red-600 text-center">{error}</p>}
+      {error && <p className="text-red-300 text-center">{error}</p>}
 
       <button
         type="submit"
-        className="w-full bg-black text-white py-2 rounded hover:bg-gray-800 transition"
+        className="w-full rounded-lg bg-gradient-to-r from-emerald-300 to-amber-300 py-2 font-semibold text-slate-900 shadow-[0_12px_30px_rgba(53,208,186,0.25)] transition hover:opacity-90"
       >
         Entrar
       </button>
     </form>
   );
 }
-

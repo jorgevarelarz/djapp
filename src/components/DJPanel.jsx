@@ -1,59 +1,87 @@
 import React from "react";
 
-const DJPanel = ({ songs, onPlay, onMarkAsPlayed }) => {
+const DJPanel = ({ requests, onPlay, onMarkAsPlayed, onBanDevice }) => {
   return (
-    <div className="p-6 bg-gradient-to-r from-purple-900 via-indigo-900 to-blue-900 text-white rounded-xl shadow-2xl max-w-3xl mx-auto mt-8">
-      <h2 className="text-3xl font-extrabold mb-6 text-center tracking-wide">
-        Panel del DJ 🎧
-      </h2>
+    <div className="p-6 rounded-2xl max-w-4xl mx-auto bb-card-strong">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+            Cabina BeatBid
+          </p>
+          <h2 className="text-3xl font-semibold bb-title">Panel del DJ</h2>
+        </div>
+        <span className="text-sm text-white/60">
+          {requests.length} solicitudes
+        </span>
+      </div>
 
-      {songs.length === 0 ? (
+      {requests.length === 0 ? (
         <p className="text-gray-300 text-center text-lg italic">
           No hay canciones en la lista.
         </p>
       ) : (
         <ul className="space-y-4">
-          {songs.map((song) => (
+          {requests.map((request) => (
             <li
-              key={song.id}
-              className={`flex flex-col sm:flex-row items-center justify-between p-4 rounded-lg shadow-lg transition transform hover:scale-[1.02] ${
-                song.tip > 0
-                  ? "bg-green-700 border-l-8 border-green-400"
-                  : "bg-gray-800 border-l-8 border-blue-400"
+              key={request.id}
+              className={`flex flex-col gap-4 rounded-xl border p-4 transition ${
+                request.tipAmount > 0
+                  ? "border-emerald-300/40 bg-emerald-300/10"
+                  : "border-white/10 bg-white/5"
               }`}
             >
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8 flex-1">
-                <p className="text-xl font-semibold truncate max-w-xs sm:max-w-none">
-                  {song.song}
-                </p>
-                {song.tip > 0 ? (
-                  <span className="text-green-300 font-semibold text-lg">
-                    💸 Propina: {song.tip} €
-                  </span>
-                ) : (
-                  <span className="text-blue-300 font-semibold text-lg">
-                    👍 Votos: {song.votes}
-                  </span>
-                )}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <p className="text-xl font-semibold truncate max-w-xs sm:max-w-none">
+                    {request.songTitle}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-white/70">
+                    {request.nickname && <span>por {request.nickname}</span>}
+                    {request.artist && <span>• {request.artist}</span>}
+                  </div>
+                  {request.message && (
+                    <p className="text-sm text-white/60">{request.message}</p>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {request.tipAmount > 0 ? (
+                    <span className="rounded-full bg-emerald-300/20 px-3 py-1 text-sm text-emerald-100">
+                      💸 {request.tipAmount} €
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-white/10 px-3 py-1 text-sm text-white/70">
+                      🕒 {request.status}
+                    </span>
+                  )}
+                </div>
               </div>
 
-              <div className="flex gap-3 mt-3 sm:mt-0">
+              <div className="flex flex-wrap gap-3">
                 {onPlay && (
                   <button
-                    onClick={() => onPlay(song.id)}
-                    className="px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg shadow-md font-semibold transition"
-                    title={`Reproducir ${song.song}`}
+                    onClick={() => onPlay(request.id)}
+                    className="rounded-lg bg-emerald-300/90 px-4 py-2 font-semibold text-slate-900 transition hover:bg-emerald-300"
+                    title={`Reproducir ${request.songTitle}`}
                   >
                     ▶ Reproducir
                   </button>
                 )}
                 {onMarkAsPlayed && (
                   <button
-                    onClick={() => onMarkAsPlayed(song.id)}
-                    className="px-4 py-2 bg-gray-700 hover:bg-gray-800 rounded-lg shadow-md font-semibold transition"
-                    title={`Marcar ${song.song} como tocada`}
+                    onClick={() => onMarkAsPlayed(request.id)}
+                    className="rounded-lg bg-white/10 px-4 py-2 font-semibold text-white transition hover:bg-white/20"
+                    title={`Marcar ${request.songTitle} como tocada`}
                   >
                     ✔ Tocada
+                  </button>
+                )}
+                {onBanDevice && request.deviceHash && (
+                  <button
+                    onClick={() => onBanDevice(request.deviceHash)}
+                    className="rounded-lg border border-red-300/40 bg-red-500/20 px-4 py-2 font-semibold text-red-100 transition hover:bg-red-500/30"
+                    title="Bloquear dispositivo"
+                  >
+                    🚫 Bloquear
                   </button>
                 )}
               </div>
@@ -66,4 +94,3 @@ const DJPanel = ({ songs, onPlay, onMarkAsPlayed }) => {
 };
 
 export default DJPanel;
-
