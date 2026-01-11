@@ -1,96 +1,116 @@
 import React from "react";
 
-const DJPanel = ({ requests, onPlay, onMarkAsPlayed, onBanDevice }) => {
-  return (
-    <div className="p-6 rounded-2xl max-w-4xl mx-auto bb-card-strong">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-white/60">
-            Cabina BeatBid
-          </p>
-          <h2 className="text-3xl font-semibold bb-title">Panel del DJ</h2>
-        </div>
-        <span className="text-sm text-white/60">
-          {requests.length} solicitudes
-        </span>
-      </div>
-
-      {requests.length === 0 ? (
-        <p className="text-gray-300 text-center text-lg italic">
-          No hay canciones en la lista.
+export default function DJPanel({
+  requests,
+  onPlay,
+  onMarkAsPlayed,
+  onBanDevice,
+  onAcceptPayment,
+  onRejectPayment,
+}) {
+  if (requests.length === 0) {
+    return (
+      <div className="text-center py-12 border border-dashed border-white/20 rounded-xl bg-white/5">
+        <p className="text-white/60 text-lg">La pista está tranquila... 🦗</p>
+        <p className="text-sm text-white/40 mt-2">
+          Comparte el código del evento para recibir peticiones.
         </p>
-      ) : (
-        <ul className="space-y-4">
-          {requests.map((request) => (
-            <li
-              key={request.id}
-              className={`flex flex-col gap-4 rounded-xl border p-4 transition ${
-                request.tipAmount > 0
-                  ? "border-emerald-300/40 bg-emerald-300/10"
-                  : "border-white/10 bg-white/5"
-              }`}
-            >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1">
-                  <p className="text-xl font-semibold truncate max-w-xs sm:max-w-none">
-                    {request.songTitle}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2 text-sm text-white/70">
-                    {request.nickname && <span>por {request.nickname}</span>}
-                    {request.artist && <span>• {request.artist}</span>}
-                  </div>
-                  {request.message && (
-                    <p className="text-sm text-white/60">{request.message}</p>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {request.tipAmount > 0 ? (
-                    <span className="rounded-full bg-emerald-300/20 px-3 py-1 text-sm text-emerald-100">
-                      💸 {request.tipAmount} €
-                    </span>
-                  ) : (
-                    <span className="rounded-full bg-white/10 px-3 py-1 text-sm text-white/70">
-                      🕒 {request.status}
-                    </span>
-                  )}
-                </div>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="space-y-4">
+      {requests.map((req) => (
+        <li key={req.id}>
+          <div
+            className={`relative group flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-xl border transition-all duration-300 ${
+              req.tipAmount > 0
+                ? "bg-emerald-900/20 border-emerald-500/40"
+                : "bg-white/5 border-white/10 hover:border-white/20"
+            }`}
+          >
+            <div className="flex-1 min-w-0 mb-4 sm:mb-0 sm:mr-6">
+              <div className="flex items-center gap-3 mb-1">
+                <h4 className="text-lg font-semibold text-white truncate leading-tight">
+                  {req.songTitle}
+                </h4>
+                {req.tipAmount > 0 && (
+                  <span className="flex-shrink-0 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500 text-black">
+                    €{req.tipAmount}
+                  </span>
+                )}
+                {req.tipAmount > 0 && (
+                  <span className="flex-shrink-0 px-2 py-0.5 rounded text-[10px] uppercase tracking-wide bg-white/10 text-white/70">
+                    {req.paymentStatus === "requires_capture"
+                      ? "Pago retenido"
+                      : req.paymentStatus === "captured" ||
+                        req.paymentStatus === "succeeded"
+                      ? "Pago cobrado"
+                      : req.paymentStatus === "canceled"
+                      ? "Pago cancelado"
+                      : "Pago pendiente"}
+                  </span>
+                )}
               </div>
 
-              <div className="flex flex-wrap gap-3">
-                {onPlay && (
-                  <button
-                    onClick={() => onPlay(request.id)}
-                    className="rounded-lg bg-emerald-300/90 px-4 py-2 font-semibold text-slate-900 transition hover:bg-emerald-300"
-                    title={`Reproducir ${request.songTitle}`}
-                  >
-                    ▶ Reproducir
-                  </button>
+              <p className="text-white/60 text-sm truncate">
+                {req.artist || "Artista desconocido"}
+                {req.nickname && (
+                  <span className="text-white/40">
+                    {" "}
+                    • pedido por {req.nickname}
+                  </span>
                 )}
-                {onMarkAsPlayed && (
+              </p>
+
+              {req.message && (
+                <p className="mt-2 text-sm text-white/80 italic bg-black/30 p-2 rounded border-l-2 border-emerald-500/50 inline-block">
+                  "{req.message}"
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              {req.tipAmount > 0 && req.paymentStatus === "requires_capture" && (
+                <>
                   <button
-                    onClick={() => onMarkAsPlayed(request.id)}
-                    className="rounded-lg bg-white/10 px-4 py-2 font-semibold text-white transition hover:bg-white/20"
-                    title={`Marcar ${request.songTitle} como tocada`}
+                    onClick={() => onAcceptPayment(req.id)}
+                    className="flex-1 sm:flex-none px-3 py-2 bg-emerald-500/30 text-emerald-100 border border-emerald-500/50 rounded-lg text-sm font-semibold transition hover:bg-emerald-500/40"
                   >
-                    ✔ Tocada
+                    Aceptar pago
                   </button>
-                )}
-                {onBanDevice && request.deviceHash && (
                   <button
-                    onClick={() => onBanDevice(request.deviceHash)}
-                    className="rounded-lg border border-red-300/40 bg-red-500/20 px-4 py-2 font-semibold text-red-100 transition hover:bg-red-500/30"
-                    title="Bloquear dispositivo"
+                    onClick={() => onRejectPayment(req.id)}
+                    className="flex-1 sm:flex-none px-3 py-2 bg-red-500/20 text-red-100 border border-red-500/40 rounded-lg text-sm font-semibold transition hover:bg-red-500/30"
                   >
-                    🚫 Bloquear
+                    Rechazar
                   </button>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+                </>
+              )}
+              <button
+                onClick={() => onPlay(req.id)}
+                className="flex-1 sm:flex-none px-4 py-2 bg-emerald-500/20 text-emerald-200 border border-emerald-500/40 rounded-lg text-sm font-semibold transition hover:bg-emerald-500/30"
+              >
+                ▶ Play
+              </button>
+              <button
+                onClick={() => onMarkAsPlayed(req.id)}
+                className="flex-1 sm:flex-none px-4 py-2 bg-white/10 hover:bg-white/20 text-white/70 border border-white/10 rounded-lg text-sm font-semibold transition"
+              >
+                ✔ Hecho
+              </button>
+              <button
+                onClick={() => onBanDevice(req.deviceHash)}
+                className="px-3 py-2 text-white/30 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"
+                title="Bloquear usuario"
+              >
+                🚫
+              </button>
+            </div>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
-};
-
-export default DJPanel;
+}

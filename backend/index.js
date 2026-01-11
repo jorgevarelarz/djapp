@@ -5,6 +5,7 @@ const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const Stripe = require("stripe");
 const db = require("./database");
 
 const app = express();
@@ -14,6 +15,9 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const DJ_INVITE_CODE = process.env.DJ_INVITE_CODE || "";
 const NODE_ENV = process.env.NODE_ENV || "development";
 const FRONTEND_URL = process.env.FRONTEND_URL || "";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "";
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
 
 const MAX_TITLE_LENGTH = 120;
 const MAX_ARTIST_LENGTH = 80;
@@ -22,11 +26,14 @@ const MAX_NICKNAME_LENGTH = 40;
 const MAX_TIP_AMOUNT = 20;
 const MIN_REQUEST_INTERVAL_MS = 10000;
 const MAX_REQUESTS_PER_DEVICE = 5;
+const DEFAULT_CURRENCY = "eur";
 
 if (!JWT_SECRET) {
   console.error("JWT_SECRET no configurado en el entorno.");
   process.exit(1);
 }
+
+const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
 
 const allowedOrigins = FRONTEND_URL.split(",")
   .map((origin) => origin.trim())
@@ -115,8 +122,34 @@ function requireRole(role) {
   };
 }
 
+function requireAdmin(req, res, next) {
+  if (!ADMIN_EMAIL) {
+    return sendError(res, 500, "ADMIN_NOT_CONFIGURED", "Admin no configurado");
+  }
+  if (!req.user || req.user.email !== ADMIN_EMAIL) {
+    return sendError(res, 403, "FORBIDDEN_ROLE", "Sin permisos");
+  }
+  next();
+}
+
 function normalizeEmail(email) {
   return email.trim().toLowerCase();
+}
+
+async function getDjAccount(userId) {
+  let account = await dbGet(`SELECT * FROM dj_accounts WHERE userId = ?`, [
+    userId,
+  ]);
+  if (!account) {
+    await dbRun(
+      `INSERT INTO dj_accounts (userId, commissionBps) VALUES (?, 1000)`,
+      [userId]
+    );
+    account = await dbGet(`SELECT * FROM dj_accounts WHERE userId = ?`, [
+      userId,
+    ]);
+  }
+  return account;
 }
 
 function generateJoinCode(length = 6) {
@@ -143,6 +176,17 @@ function getDeviceHash(req) {
     req.headers["x-device-id"] ||
     `${req.ip}-${req.headers["user-agent"] || "unknown"}`;
   return crypto.createHash("sha256").update(raw).digest("hex");
+}
+
+function formatAmountCentsFromTip(tipAmount) {
+  return Math.round(tipAmount * 100);
+}
+
+function computeApplicationFee(amountCents, commissionBps) {
+  if (!Number.isFinite(amountCents) || !Number.isFinite(commissionBps)) {
+    return 0;
+  }
+  return Math.max(0, Math.round((amountCents * commissionBps) / 10000));
 }
 
 // Registro
@@ -199,7 +243,12 @@ app.post("/api/login", async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    res.json({ token, email: user.email, role: user.role });
+    res.json({
+      token,
+      email: user.email,
+      role: user.role,
+      isAdmin: ADMIN_EMAIL && user.email === ADMIN_EMAIL,
+    });
   } catch (err) {
     res.status(500).json({ error: "Error en BD" });
   }
@@ -238,6 +287,76 @@ app.post("/api/dj/events", requireAuth, requireRole("DJ"), async (req, res) => {
   }
 });
 
+app.post(
+  "/api/dj/stripe/connect",
+  requireAuth,
+  requireRole("DJ"),
+  async (req, res) => {
+    if (!stripe) {
+      return sendError(
+        res,
+        500,
+        "STRIPE_NOT_CONFIGURED",
+        "Stripe no configurado"
+      );
+    }
+
+    try {
+      const account = await getDjAccount(req.user.id);
+      let stripeAccountId = account.stripeAccountId;
+
+      if (!stripeAccountId) {
+        const created = await stripe.accounts.create({
+          type: "express",
+          country: "ES",
+          email: req.user.email,
+          capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
+        });
+        stripeAccountId = created.id;
+        await dbRun(
+          `UPDATE dj_accounts SET stripeAccountId = ?, updatedAt = datetime('now') WHERE userId = ?`,
+          [stripeAccountId, req.user.id]
+        );
+      }
+
+      const refreshUrl = FRONTEND_URL
+        ? `${FRONTEND_URL}/dj`
+        : "http://localhost:5173/dj";
+      const returnUrl = FRONTEND_URL
+        ? `${FRONTEND_URL}/dj`
+        : "http://localhost:5173/dj";
+
+      const accountLink = await stripe.accountLinks.create({
+        account: stripeAccountId,
+        refresh_url: refreshUrl,
+        return_url: returnUrl,
+        type: "account_onboarding",
+      });
+
+      res.json({ url: accountLink.url, stripeAccountId });
+    } catch (err) {
+      res.status(500).json({ error: "Error conectando Stripe" });
+    }
+  }
+);
+
+app.get(
+  "/api/dj/stripe/status",
+  requireAuth,
+  requireRole("DJ"),
+  async (req, res) => {
+    try {
+      const account = await getDjAccount(req.user.id);
+      res.json({
+        connected: Boolean(account.stripeAccountId),
+        stripeAccountId: account.stripeAccountId || null,
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Error cargando estado de Stripe" });
+    }
+  }
+);
+
 app.get(
   "/api/dj/events/:id/requests",
   requireAuth,
@@ -262,14 +381,26 @@ app.get(
       let requests;
       if (Number.isFinite(since)) {
         requests = await dbAll(
-          `SELECT * FROM song_requests
-           WHERE eventId = ? AND updatedAt > ?
-           ORDER BY updatedAt ASC`,
+          `SELECT song_requests.*,
+                  payments.status as paymentStatus,
+                  payments.amountCents as paymentAmountCents,
+                  payments.currency as paymentCurrency
+           FROM song_requests
+           LEFT JOIN payments ON payments.requestId = song_requests.id
+           WHERE song_requests.eventId = ? AND song_requests.updatedAt > ?
+           ORDER BY song_requests.updatedAt ASC`,
           [eventId, since]
         );
       } else {
         requests = await dbAll(
-          `SELECT * FROM song_requests WHERE eventId = ? ORDER BY createdAt ASC`,
+          `SELECT song_requests.*,
+                  payments.status as paymentStatus,
+                  payments.amountCents as paymentAmountCents,
+                  payments.currency as paymentCurrency
+           FROM song_requests
+           LEFT JOIN payments ON payments.requestId = song_requests.id
+           WHERE song_requests.eventId = ?
+           ORDER BY song_requests.createdAt ASC`,
           [eventId]
         );
       }
@@ -287,7 +418,7 @@ app.patch(
   async (req, res) => {
     const requestId = Number(req.params.id);
     const { status, priority } = req.body;
-    const allowedStatuses = ["queued", "playing", "done"];
+    const allowedStatuses = ["queued", "playing", "done", "rejected"];
 
     if (!requestId) {
       return sendError(res, 400, "VALIDATION_ERROR", "Solicitud invalida");
@@ -344,6 +475,131 @@ app.patch(
       res.json({ request: updated });
     } catch (err) {
       res.status(500).json({ error: "Error actualizando solicitud" });
+    }
+  }
+);
+
+app.post(
+  "/api/dj/requests/:id/accept",
+  requireAuth,
+  requireRole("DJ"),
+  async (req, res) => {
+    if (!stripe) {
+      return sendError(
+        res,
+        500,
+        "STRIPE_NOT_CONFIGURED",
+        "Stripe no configurado"
+      );
+    }
+
+    const requestId = Number(req.params.id);
+    if (!requestId) {
+      return sendError(res, 400, "VALIDATION_ERROR", "Solicitud invalida");
+    }
+
+    try {
+      const request = await dbGet(
+        `SELECT song_requests.*, events.djUserId
+         FROM song_requests
+         JOIN events ON events.id = song_requests.eventId
+         WHERE song_requests.id = ?`,
+        [requestId]
+      );
+      if (!request || request.djUserId !== req.user.id) {
+        return sendError(res, 404, "VALIDATION_ERROR", "Solicitud no encontrada");
+      }
+
+      const payment = await dbGet(
+        `SELECT * FROM payments WHERE requestId = ?`,
+        [requestId]
+      );
+
+      if (!payment) {
+        return res.json({ ok: true, message: "Sin pago asociado" });
+      }
+
+      if (payment.status === "captured") {
+        return res.json({ ok: true, message: "Pago ya capturado" });
+      }
+
+      const captured = await stripe.paymentIntents.capture(
+        payment.paymentIntentId
+      );
+
+      await dbRun(
+        `UPDATE payments
+         SET status = ?, updatedAt = datetime('now')
+         WHERE requestId = ?`,
+        [captured.status === "succeeded" ? "captured" : captured.status, requestId]
+      );
+
+      await dbRun(
+        `UPDATE song_requests SET updatedAt = ? WHERE id = ?`,
+        [Date.now(), requestId]
+      );
+
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: "Error aceptando solicitud" });
+    }
+  }
+);
+
+app.post(
+  "/api/dj/requests/:id/reject",
+  requireAuth,
+  requireRole("DJ"),
+  async (req, res) => {
+    if (!stripe) {
+      return sendError(
+        res,
+        500,
+        "STRIPE_NOT_CONFIGURED",
+        "Stripe no configurado"
+      );
+    }
+
+    const requestId = Number(req.params.id);
+    if (!requestId) {
+      return sendError(res, 400, "VALIDATION_ERROR", "Solicitud invalida");
+    }
+
+    try {
+      const request = await dbGet(
+        `SELECT song_requests.*, events.djUserId
+         FROM song_requests
+         JOIN events ON events.id = song_requests.eventId
+         WHERE song_requests.id = ?`,
+        [requestId]
+      );
+      if (!request || request.djUserId !== req.user.id) {
+        return sendError(res, 404, "VALIDATION_ERROR", "Solicitud no encontrada");
+      }
+
+      const payment = await dbGet(
+        `SELECT * FROM payments WHERE requestId = ?`,
+        [requestId]
+      );
+
+      if (payment && payment.status !== "canceled") {
+        await stripe.paymentIntents.cancel(payment.paymentIntentId);
+        await dbRun(
+          `UPDATE payments
+           SET status = ?, updatedAt = datetime('now')
+           WHERE requestId = ?`,
+          ["canceled", requestId]
+        );
+      }
+
+      await dbRun(
+        `UPDATE song_requests SET status = ?, updatedAt = ? WHERE id = ?`,
+        ["rejected", Date.now(), requestId]
+      );
+
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: "Error rechazando solicitud" });
     }
   }
 );
@@ -542,6 +798,54 @@ app.post(
         }
       }
 
+      let paymentIntent = null;
+      let amountCents = 0;
+      let applicationFeeCents = 0;
+      let djStripeAccountId = null;
+
+      if (normalizedTip > 0) {
+        if (!stripe) {
+          return sendError(
+            res,
+            500,
+            "STRIPE_NOT_CONFIGURED",
+            "Stripe no configurado"
+          );
+        }
+
+        const djAccount = await getDjAccount(event.djUserId);
+        if (!djAccount.stripeAccountId) {
+          return sendError(
+            res,
+            409,
+            "DJ_STRIPE_NOT_CONNECTED",
+            "El DJ aun no tiene pagos habilitados"
+          );
+        }
+
+        amountCents = formatAmountCentsFromTip(normalizedTip);
+        applicationFeeCents = computeApplicationFee(
+          amountCents,
+          djAccount.commissionBps
+        );
+        djStripeAccountId = djAccount.stripeAccountId;
+
+        paymentIntent = await stripe.paymentIntents.create({
+          amount: amountCents,
+          currency: DEFAULT_CURRENCY,
+          capture_method: "manual",
+          automatic_payment_methods: { enabled: true },
+          application_fee_amount: applicationFeeCents,
+          transfer_data: {
+            destination: djStripeAccountId,
+          },
+          metadata: {
+            eventId: String(event.id),
+            djUserId: String(event.djUserId),
+          },
+        });
+      }
+
       const result = await dbRun(
         `INSERT INTO song_requests
          (eventId, songTitle, artist, message, nickname, status, priority, tipAmount, deviceHash, updatedAt)
@@ -563,9 +867,82 @@ app.post(
         `SELECT * FROM song_requests WHERE id = ?`,
         [result.lastID]
       );
-      res.json({ request });
+
+      if (paymentIntent) {
+        await stripe.paymentIntents.update(paymentIntent.id, {
+          metadata: {
+            requestId: String(result.lastID),
+          },
+        });
+        await dbRun(
+          `INSERT INTO payments
+           (requestId, amountCents, currency, paymentIntentId, status, applicationFeeCents, djStripeAccountId)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            result.lastID,
+            amountCents,
+            DEFAULT_CURRENCY,
+            paymentIntent.id,
+            paymentIntent.status,
+            applicationFeeCents,
+            djStripeAccountId,
+          ]
+        );
+      }
+
+      res.json({
+        request,
+        clientSecret: paymentIntent ? paymentIntent.client_secret : null,
+        amountCents: paymentIntent ? amountCents : null,
+      });
     } catch (err) {
       res.status(500).json({ error: "Error creando solicitud" });
+    }
+  }
+);
+
+app.post(
+  "/api/public/requests/:id/confirm-payment",
+  async (req, res) => {
+    if (!stripe) {
+      return sendError(
+        res,
+        500,
+        "STRIPE_NOT_CONFIGURED",
+        "Stripe no configurado"
+      );
+    }
+
+    const requestId = Number(req.params.id);
+    const { paymentIntentId } = req.body;
+    if (!requestId || !paymentIntentId) {
+      return sendError(res, 400, "VALIDATION_ERROR", "Datos invalidos");
+    }
+
+    try {
+      const payment = await dbGet(
+        `SELECT * FROM payments WHERE requestId = ?`,
+        [requestId]
+      );
+      if (!payment || payment.paymentIntentId !== paymentIntentId) {
+        return sendError(res, 404, "VALIDATION_ERROR", "Pago no encontrado");
+      }
+
+      const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      await dbRun(
+        `UPDATE payments
+         SET status = ?, updatedAt = datetime('now')
+         WHERE requestId = ?`,
+        [intent.status, requestId]
+      );
+      await dbRun(
+        `UPDATE song_requests SET updatedAt = ? WHERE id = ?`,
+        [Date.now(), requestId]
+      );
+
+      res.json({ ok: true, status: intent.status });
+    } catch (err) {
+      res.status(500).json({ error: "Error confirmando pago" });
     }
   }
 );
@@ -574,6 +951,127 @@ app.post(
 app.get("/api/protected", requireAuth, (req, res) => {
   res.json({ message: `Hola ${req.user.email}, estás autenticado` });
 });
+
+app.get(
+  "/api/admin/metrics",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const [
+        capturedTotals,
+        feeTotals,
+        pendingTotals,
+        totalDjsRow,
+        activeDjsRow,
+        totalEventsRow,
+        totalRequestsRow,
+      ] = await Promise.all([
+        dbGet(
+          `SELECT COALESCE(SUM(amountCents), 0) as totalCents
+           FROM payments
+           WHERE status IN ('captured', 'succeeded')`
+        ),
+        dbGet(
+          `SELECT COALESCE(SUM(applicationFeeCents), 0) as feeCents
+           FROM payments
+           WHERE status IN ('captured', 'succeeded')`
+        ),
+        dbGet(
+          `SELECT COALESCE(SUM(amountCents), 0) as pendingCents
+           FROM payments
+           WHERE status = 'requires_capture'`
+        ),
+        dbGet(
+          `SELECT COUNT(*) as totalDjs FROM users WHERE role = 'DJ'`
+        ),
+        dbGet(
+          `SELECT COUNT(DISTINCT djUserId) as activeDjs
+           FROM events WHERE status = 'active'`
+        ),
+        dbGet(`SELECT COUNT(*) as totalEvents FROM events`),
+        dbGet(`SELECT COUNT(*) as totalRequests FROM song_requests`),
+      ]);
+
+      res.json({
+        totalCapturedCents: capturedTotals?.totalCents || 0,
+        totalFeesCents: feeTotals?.feeCents || 0,
+        pendingCents: pendingTotals?.pendingCents || 0,
+        totalDjs: totalDjsRow?.totalDjs || 0,
+        activeDjs: activeDjsRow?.activeDjs || 0,
+        totalEvents: totalEventsRow?.totalEvents || 0,
+        totalRequests: totalRequestsRow?.totalRequests || 0,
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Error cargando métricas" });
+    }
+  }
+);
+
+app.get(
+  "/api/admin/djs",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const djs = await dbAll(
+        `SELECT users.id,
+                users.email,
+                COALESCE(dj_accounts.commissionBps, 1000) as commissionBps,
+                dj_accounts.stripeAccountId,
+                COALESCE(SUM(CASE WHEN payments.status IN ('captured','succeeded')
+                  THEN payments.amountCents ELSE 0 END), 0) as capturedCents
+         FROM users
+         LEFT JOIN dj_accounts ON dj_accounts.userId = users.id
+         LEFT JOIN events ON events.djUserId = users.id
+         LEFT JOIN song_requests ON song_requests.eventId = events.id
+         LEFT JOIN payments ON payments.requestId = song_requests.id
+         WHERE users.role = 'DJ'
+         GROUP BY users.id
+         ORDER BY users.email ASC`
+      );
+      res.json({ djs });
+    } catch (err) {
+      res.status(500).json({ error: "Error cargando DJs" });
+    }
+  }
+);
+
+app.patch(
+  "/api/admin/djs/:id/commission",
+  requireAuth,
+  requireAdmin,
+  async (req, res) => {
+    const djId = Number(req.params.id);
+    const { commissionBps } = req.body;
+
+    if (!djId || !Number.isFinite(Number(commissionBps))) {
+      return sendError(res, 400, "VALIDATION_ERROR", "Datos invalidos");
+    }
+
+    const normalizedBps = Math.floor(Number(commissionBps));
+    if (normalizedBps < 0 || normalizedBps > 3000) {
+      return sendError(res, 400, "VALIDATION_ERROR", "Comision invalida");
+    }
+
+    try {
+      await dbRun(
+        `INSERT INTO dj_accounts (userId, commissionBps)
+         VALUES (?, ?)
+         ON CONFLICT(userId)
+         DO UPDATE SET commissionBps = excluded.commissionBps, updatedAt = datetime('now')`,
+        [djId, normalizedBps]
+      );
+      const updated = await dbGet(
+        `SELECT userId, commissionBps FROM dj_accounts WHERE userId = ?`,
+        [djId]
+      );
+      res.json({ ok: true, account: updated });
+    } catch (err) {
+      res.status(500).json({ error: "Error actualizando comisión" });
+    }
+  }
+);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, "0.0.0.0", () => {

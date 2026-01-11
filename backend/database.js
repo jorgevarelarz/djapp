@@ -27,6 +27,18 @@ function initSchema() {
       );
 
       db.run(
+        `CREATE TABLE IF NOT EXISTS dj_accounts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          userId INTEGER NOT NULL UNIQUE,
+          stripeAccountId TEXT,
+          commissionBps INTEGER NOT NULL DEFAULT 1000,
+          createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+          updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (userId) REFERENCES users(id)
+        )`
+      );
+
+      db.run(
         `CREATE TABLE IF NOT EXISTS events (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           djUserId INTEGER NOT NULL,
@@ -54,6 +66,22 @@ function initSchema() {
           updatedAt INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER) * 1000),
           createdAt TEXT NOT NULL DEFAULT (datetime('now')),
           FOREIGN KEY (eventId) REFERENCES events(id)
+        )`
+      );
+
+      db.run(
+        `CREATE TABLE IF NOT EXISTS payments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          requestId INTEGER NOT NULL UNIQUE,
+          amountCents INTEGER NOT NULL,
+          currency TEXT NOT NULL DEFAULT 'eur',
+          paymentIntentId TEXT NOT NULL UNIQUE,
+          status TEXT NOT NULL DEFAULT 'requires_capture',
+          applicationFeeCents INTEGER NOT NULL DEFAULT 0,
+          djStripeAccountId TEXT,
+          createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+          updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (requestId) REFERENCES song_requests(id)
         )`
       );
 
@@ -90,8 +118,15 @@ function initSchema() {
          ON events(djUserId)`
       );
 
+      db.run(
+        `CREATE INDEX IF NOT EXISTS idx_payments_request_id
+         ON payments(requestId)`
+      );
+
       ensureSongRequestColumns();
       ensureDeviceColumns();
+      ensureDjAccountColumns();
+      ensurePaymentColumns();
     });
   });
 }
@@ -130,6 +165,48 @@ function ensureDeviceColumns() {
     }
     if (!columnNames.includes("bannedAt")) {
       db.run(`ALTER TABLE devices ADD COLUMN bannedAt INTEGER`);
+    }
+  });
+}
+
+function ensureDjAccountColumns() {
+  db.all("PRAGMA table_info(dj_accounts)", (err, columns) => {
+    if (err || !columns || columns.length === 0) return;
+    const columnNames = columns.map((col) => col.name);
+    if (!columnNames.includes("stripeAccountId")) {
+      db.run(`ALTER TABLE dj_accounts ADD COLUMN stripeAccountId TEXT`);
+    }
+    if (!columnNames.includes("commissionBps")) {
+      db.run(
+        `ALTER TABLE dj_accounts ADD COLUMN commissionBps INTEGER NOT NULL DEFAULT 1000`
+      );
+      db.run(`UPDATE dj_accounts SET commissionBps = 1000 WHERE commissionBps IS NULL`);
+    }
+    if (!columnNames.includes("updatedAt")) {
+      db.run(
+        `ALTER TABLE dj_accounts ADD COLUMN updatedAt TEXT NOT NULL DEFAULT (datetime('now'))`
+      );
+    }
+  });
+}
+
+function ensurePaymentColumns() {
+  db.all("PRAGMA table_info(payments)", (err, columns) => {
+    if (err || !columns || columns.length === 0) return;
+    const columnNames = columns.map((col) => col.name);
+    if (!columnNames.includes("applicationFeeCents")) {
+      db.run(
+        `ALTER TABLE payments ADD COLUMN applicationFeeCents INTEGER NOT NULL DEFAULT 0`
+      );
+      db.run(`UPDATE payments SET applicationFeeCents = 0 WHERE applicationFeeCents IS NULL`);
+    }
+    if (!columnNames.includes("djStripeAccountId")) {
+      db.run(`ALTER TABLE payments ADD COLUMN djStripeAccountId TEXT`);
+    }
+    if (!columnNames.includes("updatedAt")) {
+      db.run(
+        `ALTER TABLE payments ADD COLUMN updatedAt TEXT NOT NULL DEFAULT (datetime('now'))`
+      );
     }
   });
 }

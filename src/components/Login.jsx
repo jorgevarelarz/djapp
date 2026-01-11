@@ -1,17 +1,25 @@
 import React, { useState } from "react";
+import { LogIn, Loader2, Lock, Mail } from "lucide-react";
+import { motion } from "framer-motion";
+import { toast } from "sonner";
 import { API_URL, apiFetch } from "../config";
 
 export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
     if (!email.trim() || !password.trim()) {
-      setError("Por favor, completa todos los campos");
+      const message = "Por favor, completa todos los campos";
+      setError(message);
+      toast.error(message);
+      setLoading(false);
       return;
     }
 
@@ -23,53 +31,102 @@ export default function Login({ onLoginSuccess }) {
       });
 
       if (!res.ok) {
-        setError(data?.error || "Error en el login");
+        const message = data?.error || "Credenciales incorrectas";
+        setError(message);
+        toast.error(message);
       } else {
+        toast.success("Bienvenido de nuevo, DJ");
         onLoginSuccess(data);
       }
     } catch (err) {
-      setError("Error de conexión con el servidor");
+      const message = "No se pudo conectar con el servidor";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="max-w-sm mx-auto p-6 rounded-2xl space-y-4 bb-card"
-    >
-      <div className="space-y-1 text-center">
-        <p className="text-xs uppercase tracking-[0.3em] text-white/60">
-          Acceso DJ
-        </p>
-        <h2 className="text-2xl font-semibold bb-title">Iniciar sesión</h2>
-      </div>
-
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/60"
-        required
-      />
-
-      <input
-        type="password"
-        placeholder="Contraseña"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/60"
-        required
-      />
-
-      {error && <p className="text-red-300 text-center">{error}</p>}
-
-      <button
-        type="submit"
-        className="w-full rounded-lg bg-gradient-to-r from-emerald-300 to-amber-300 py-2 font-semibold text-slate-900 shadow-[0_12px_30px_rgba(53,208,186,0.25)] transition hover:opacity-90"
+    <div className="flex items-center justify-center w-full">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-md bb-card p-8 rounded-3xl relative overflow-hidden"
       >
-        Entrar
-      </button>
-    </form>
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-white/10 blur-[120px] rounded-full pointer-events-none" />
+
+        <div className="relative z-10">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-semibold text-white mb-2 tracking-tight bb-title">
+              DJ Access
+            </h2>
+            <p className="text-white/60 text-sm">Gestiona la pista de baile</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-white/60 uppercase tracking-wider ml-1">
+                Email profesional
+              </label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-white/40 group-focus-within:text-white transition-colors">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-white/5 text-white placeholder-white/30 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                  placeholder="dj@beatbid.app"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-white/60 uppercase tracking-wider ml-1">
+                Contraseña
+              </label>
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-white/40 group-focus-within:text-white transition-colors">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-white/5 text-white placeholder-white/30 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="p-3 rounded bg-red-500/20 border border-red-500/30 text-red-200 text-sm text-center">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full group relative flex items-center justify-center gap-2 py-4 bg-white text-black font-semibold rounded-xl transition-all hover:bg-gray-200 disabled:opacity-70 disabled:cursor-not-allowed mt-4"
+            >
+              {loading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <>
+                  <span>Entrar a Cabina</span>
+                  <LogIn className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+      </motion.div>
+    </div>
   );
 }

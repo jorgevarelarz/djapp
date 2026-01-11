@@ -26,6 +26,12 @@ export function AppProvider({ children }) {
   const [djError, setDjError] = useState("");
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [lastSync, setLastSync] = useState(null);
+  const [stripeStatus, setStripeStatus] = useState({ connected: false });
+  const [stripeLoading, setStripeLoading] = useState(false);
+  const [pendingPayment, setPendingPayment] = useState(null);
+  const [adminMetrics, setAdminMetrics] = useState(null);
+  const [adminDjs, setAdminDjs] = useState([]);
+  const [adminLoading, setAdminLoading] = useState(false);
   const requestInFlightRef = useRef(false);
 
   useEffect(() => {
@@ -126,6 +132,12 @@ export function AppProvider({ children }) {
     setLastSync(null);
     setDjNotice("");
     setDjError("");
+    setStripeStatus({ connected: false });
+    setStripeLoading(false);
+    setPendingPayment(null);
+    setAdminMetrics(null);
+    setAdminDjs([]);
+    setAdminLoading(false);
   };
 
   const handleAuthFailure = (message) => {
@@ -137,6 +149,12 @@ export function AppProvider({ children }) {
     setError(message || "Sesion expirada. Inicia sesion de nuevo.");
     setDjNotice("");
     setDjError("");
+    setStripeStatus({ connected: false });
+    setStripeLoading(false);
+    setPendingPayment(null);
+    setAdminMetrics(null);
+    setAdminDjs([]);
+    setAdminLoading(false);
   };
 
   const authMessageFor = (res, data) => {
@@ -223,11 +241,120 @@ export function AppProvider({ children }) {
     }
   };
 
+  const loadStripeStatus = async () => {
+    if (!user || user.role !== "DJ") return;
+    setStripeLoading(true);
+    try {
+      const { res, data } = await apiFetch(`${API_URL}/api/dj/stripe/status`, {
+        headers: { ...authHeaders },
+      });
+      if (handleAuthResponse(res, data)) return;
+      if (res.ok) {
+        setStripeStatus({
+          connected: Boolean(data.connected),
+          stripeAccountId: data.stripeAccountId || null,
+        });
+      }
+    } catch {}
+    finally {
+      setStripeLoading(false);
+    }
+  };
+
+  const connectStripe = async () => {
+    if (!user || user.role !== "DJ") return;
+    setStripeLoading(true);
+    setDjError("");
+    try {
+      const { res, data } = await apiFetch(`${API_URL}/api/dj/stripe/connect`, {
+        method: "POST",
+        headers: { ...authHeaders },
+      });
+      if (handleAuthResponse(res, data)) return;
+      if (!res.ok) {
+        setDjError(data?.error || "No se pudo conectar Stripe");
+        return;
+      }
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+    } catch {
+      setDjError("Error de conexión con el servidor");
+    } finally {
+      setStripeLoading(false);
+    }
+  };
+
+  const loadAdminData = async () => {
+    if (!user || !user.isAdmin) return;
+    setAdminLoading(true);
+    try {
+      const [metricsRes, djsRes] = await Promise.all([
+        apiFetch(`${API_URL}/api/admin/metrics`, {
+          headers: { ...authHeaders },
+        }),
+        apiFetch(`${API_URL}/api/admin/djs`, {
+          headers: { ...authHeaders },
+        }),
+      ]);
+      if (handleAuthResponse(metricsRes.res, metricsRes.data)) return;
+      if (handleAuthResponse(djsRes.res, djsRes.data)) return;
+      if (metricsRes.res.ok) {
+        setAdminMetrics(metricsRes.data);
+      }
+      if (djsRes.res.ok) {
+        setAdminDjs(djsRes.data?.djs || []);
+      }
+    } catch {}
+    finally {
+      setAdminLoading(false);
+    }
+  };
+
+  const updateDjCommission = async (djId, commissionBps) => {
+    if (!user || !user.isAdmin) return;
+    try {
+      const { res, data } = await apiFetch(
+        `${API_URL}/api/admin/djs/${djId}/commission`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeaders },
+          body: JSON.stringify({ commissionBps }),
+        }
+      );
+      if (handleAuthResponse(res, data)) return;
+      if (!res.ok) {
+        setDjError(data?.error || "No se pudo actualizar la comisión");
+        return;
+      }
+      setAdminDjs((prev) =>
+        prev.map((dj) =>
+          dj.id === djId ? { ...dj, commissionBps } : dj
+        )
+      );
+      setDjNotice("Comisión actualizada");
+    } catch {
+      setDjError("Error de conexión con el servidor");
+    }
+  };
+
   useEffect(() => {
     if (user && user.role === "DJ" && !event) {
       loadEventsForDj();
     }
   }, [user, event]);
+
+  useEffect(() => {
+    if (user && user.role === "DJ") {
+      loadStripeStatus();
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user && user.isAdmin) {
+      loadAdminData();
+    }
+  }, [user?.isAdmin]);
 
   useEffect(() => {
     if (!user || user.role !== "DJ" || !event) return;
@@ -277,6 +404,7 @@ export function AppProvider({ children }) {
     }
     setRequestError("");
     setRequestNotice("");
+    setPendingPayment(null);
 
     try {
       const { res, data } = await apiFetch(
@@ -312,12 +440,25 @@ export function AppProvider({ children }) {
           setRequestError("Codigo de evento invalido.");
         } else if (data?.code === "EVENT_ENDED") {
           setRequestError("Este evento ya finalizo.");
+        } else if (data?.code === "DJ_STRIPE_NOT_CONNECTED") {
+          setRequestError("El DJ aun no tiene pagos habilitados.");
+        } else if (data?.code === "STRIPE_NOT_CONFIGURED") {
+          setRequestError("Los pagos no estan disponibles en este momento.");
         } else {
           setRequestError(data?.error || "No se pudo enviar la solicitud");
         }
         return;
       }
-      setRequestNotice("Solicitud enviada");
+      if (data?.clientSecret) {
+        setPendingPayment({
+          clientSecret: data.clientSecret,
+          requestId: data.request?.id,
+          amountCents: data.amountCents,
+        });
+        setRequestNotice("Completa el pago para enviar la propina.");
+      } else {
+        setRequestNotice("Solicitud enviada");
+      }
     } catch {
       setRequestError("Error de conexión con el servidor");
     }
@@ -336,6 +477,63 @@ export function AppProvider({ children }) {
         loadRequests();
       }
     } catch {}
+  };
+
+  const acceptRequest = async (id) => {
+    if (!event) return;
+    try {
+      const { res, data } = await apiFetch(
+        `${API_URL}/api/dj/requests/${id}/accept`,
+        {
+          method: "POST",
+          headers: { ...authHeaders },
+        }
+      );
+      if (handleAuthResponse(res, data)) return;
+      if (res.ok) {
+        loadRequests();
+      }
+    } catch {}
+  };
+
+  const rejectRequest = async (id) => {
+    if (!event) return;
+    try {
+      const { res, data } = await apiFetch(
+        `${API_URL}/api/dj/requests/${id}/reject`,
+        {
+          method: "POST",
+          headers: { ...authHeaders },
+        }
+      );
+      if (handleAuthResponse(res, data)) return;
+      if (res.ok) {
+        loadRequests();
+      }
+    } catch {}
+  };
+
+  const confirmPayment = async (requestId, paymentIntentId) => {
+    if (!requestId || !paymentIntentId) return;
+    try {
+      const { res, data } = await apiFetch(
+        `${API_URL}/api/public/requests/${requestId}/confirm-payment`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paymentIntentId }),
+        }
+      );
+      if (res.ok) {
+        setRequestNotice("Pago autorizado. El DJ decidirá la prioridad.");
+      } else {
+        setRequestError(data?.error || "No se pudo confirmar el pago");
+      }
+    } catch {
+      setRequestError("Error de conexión con el servidor");
+    } finally {
+      setPendingPayment(null);
+    }
   };
 
   const handleBanDevice = async (deviceHash) => {
@@ -392,6 +590,12 @@ export function AppProvider({ children }) {
     djError,
     loadingRequests,
     sortedRequests,
+    stripeStatus,
+    stripeLoading,
+    pendingPayment,
+    adminMetrics,
+    adminDjs,
+    adminLoading,
     handleLoginSuccess,
     handleLogout,
     handleCreateEvent,
@@ -399,6 +603,13 @@ export function AppProvider({ children }) {
     playSong,
     markAsPlayed,
     handleBanDevice,
+    acceptRequest,
+    rejectRequest,
+    confirmPayment,
+    loadStripeStatus,
+    connectStripe,
+    loadAdminData,
+    updateDjCommission,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

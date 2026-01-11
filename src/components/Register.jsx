@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+import { ArrowRight, Key, Loader2, Lock, User } from "lucide-react";
+import { motion } from "framer-motion";
+import { toast } from "sonner";
 import { API_URL, apiFetch } from "../config";
 
 export default function Register({ onRegisterSuccess }) {
@@ -21,65 +24,92 @@ export default function Register({ onRegisterSuccess }) {
       });
 
       if (!res.ok) {
-        setError(data?.error || "Error en el registro");
+        const message = data?.error || "Error en el registro";
+        setError(message);
+        toast.error(message);
       } else {
+        toast.success("Cuenta creada correctamente");
         onRegisterSuccess();
       }
     } catch (err) {
-      setError("Error de conexión al servidor");
+      const message = "No se pudo conectar con el servidor";
+      setError(message);
+      toast.error(message);
     }
 
     setLoading(false);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-md mx-auto p-6 rounded-2xl space-y-4 bb-card">
-      <div className="space-y-1 text-center">
-        <p className="text-xs uppercase tracking-[0.3em] text-white/60">
-          Nuevo DJ
-        </p>
-        <h2 className="text-xl font-semibold bb-title">Registro</h2>
-      </div>
-
-      <input
-        type="email"
-        placeholder="Email"
-        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/60"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-      />
-
-      <input
-        type="password"
-        placeholder="Contraseña"
-        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/60"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-      />
-
-      <input
-        type="text"
-        placeholder="Codigo DJ (opcional)"
-        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/60"
-        value={inviteCode}
-        onChange={(e) => setInviteCode(e.target.value)}
-      />
-
-      {error && <p className="text-red-300">{error}</p>}
-
-      <button
-        type="submit"
-        disabled={loading}
-        className={`w-full py-2 rounded-lg font-semibold text-slate-900 ${
-          loading
-            ? "bg-white/20 text-white cursor-not-allowed"
-            : "bg-gradient-to-r from-emerald-300 to-amber-300 hover:opacity-90"
-        }`}
+    <div className="flex items-center justify-center w-full">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4 }}
+        className="w-full max-w-md bb-card p-8 rounded-3xl"
       >
-        {loading ? "Registrando..." : "Registrar"}
-      </button>
-    </form>
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-semibold text-white bb-title">
+            Nueva Cuenta DJ
+          </h2>
+          <p className="text-white/60 text-sm mt-1">
+            Únete a la plataforma BeatBid
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="relative group">
+            <User className="absolute left-4 top-3.5 w-5 h-5 text-white/40 group-focus-within:text-white transition-colors" />
+            <input
+              type="email"
+              placeholder="Email"
+              className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 pl-12 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="relative group">
+            <Lock className="absolute left-4 top-3.5 w-5 h-5 text-white/40 group-focus-within:text-white transition-colors" />
+            <input
+              type="password"
+              placeholder="Contraseña"
+              className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 pl-12 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="relative group">
+            <Key className="absolute left-4 top-3.5 w-5 h-5 text-white/40 group-focus-within:text-white transition-colors" />
+            <input
+              type="text"
+              placeholder="Código de Invitación (Opcional)"
+              className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 pl-12 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+            />
+          </div>
+
+          {error && <p className="text-red-300 text-sm text-center">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full mt-4 py-3 bg-white hover:bg-gray-200 text-black font-semibold rounded-xl transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <>
+                Registrar <ArrowRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
+        </form>
+      </motion.div>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Spline+Sans:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,25 +6,22 @@
 
 :root {
   color-scheme: dark;
-  --bb-bg: #0b0f1a;
+  --bb-bg: #000000;
   --bb-surface: rgba(255, 255, 255, 0.06);
   --bb-surface-strong: rgba(255, 255, 255, 0.12);
   --bb-border: rgba(255, 255, 255, 0.12);
-  --bb-accent: #35d0ba;
-  --bb-accent-strong: #f4b03e;
-  --bb-text: #f8fafc;
-  --bb-muted: #cbd5f5;
+  --bb-accent: #ffffff;
+  --bb-accent-strong: #d1d5db;
+  --bb-text: #ffffff;
+  --bb-muted: rgba(255, 255, 255, 0.6);
 }
 
 body {
   min-height: 100vh;
   background-color: var(--bb-bg);
-  background-image:
-    radial-gradient(1200px circle at 10% 10%, rgba(53, 208, 186, 0.16), transparent 55%),
-    radial-gradient(900px circle at 90% 20%, rgba(244, 176, 62, 0.14), transparent 60%),
-    radial-gradient(600px circle at 50% 90%, rgba(99, 102, 241, 0.18), transparent 65%);
+  background-image: none;
   color: var(--bb-text);
-  font-family: "Spline Sans", "Space Grotesk", system-ui, -apple-system,
+  font-family: "Manrope", "Space Grotesk", system-ui, -apple-system,
     "Segoe UI", sans-serif;
 }
 
@@ -33,21 +30,21 @@ body {
 }
 
 .bb-title {
-  font-family: "Space Grotesk", "Spline Sans", system-ui, sans-serif;
+  font-family: "Space Grotesk", "Manrope", system-ui, sans-serif;
 }
 
 .bb-card {
   background: var(--bb-surface);
   border: 1px solid var(--bb-border);
-  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(14px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
 }
 
 .bb-card-strong {
   background: var(--bb-surface-strong);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.5);
-  backdrop-filter: blur(18px);
+  border: 1px solid var(--bb-border);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(16px);
 }
 
 .bb-fade-up {

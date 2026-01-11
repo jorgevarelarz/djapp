@@ -34,13 +34,15 @@ export default function SongRequestForm({ onAddRequest }) {
         <p className="text-xs uppercase tracking-[0.3em] text-white/60">
           Pedido rapido
         </p>
-        <h2 className="text-2xl font-semibold bb-title">Pide una canción</h2>
+        <h2 className="text-2xl font-semibold bb-title text-white">
+          Pide una canción
+        </h2>
       </div>
 
       <input
         type="text"
         placeholder="Nombre de la canción"
-        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/60"
+        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
         value={song}
         onChange={(e) => setSong(e.target.value)}
         maxLength={120}
@@ -50,7 +52,7 @@ export default function SongRequestForm({ onAddRequest }) {
       <input
         type="text"
         placeholder="Artista (opcional)"
-        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/60"
+        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
         value={artist}
         onChange={(e) => setArtist(e.target.value)}
         maxLength={80}
@@ -58,7 +60,7 @@ export default function SongRequestForm({ onAddRequest }) {
 
       <textarea
         placeholder="Mensaje para el DJ (opcional)"
-        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-300/60"
+        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
         rows={3}
         value={message}
         onChange={(e) => setMessage(e.target.value)}
@@ -66,15 +68,15 @@ export default function SongRequestForm({ onAddRequest }) {
       />
 
       <div className="space-y-2">
-        <span className="text-sm text-white/70">Propina</span>
+        <span className="text-sm text-white/60">Propina</span>
         <div className="flex flex-wrap gap-2">
           {TIP_OPTIONS.map((amount) => (
             <label
               key={amount}
               className={`cursor-pointer rounded-full border px-3 py-1 text-sm transition ${
                 tip === amount
-                  ? "border-emerald-300/60 bg-emerald-300/20 text-emerald-100"
-                  : "border-white/10 bg-white/5 text-white/70 hover:border-white/30"
+                  ? "border-white/30 bg-white/20 text-white"
+                  : "border-white/10 bg-white/5 text-white/60 hover:border-white/30"
               }`}
             >
               <input
@@ -93,7 +95,7 @@ export default function SongRequestForm({ onAddRequest }) {
 
       <button
         type="submit"
-        className="w-full rounded-lg bg-gradient-to-r from-emerald-300 to-amber-300 py-2 font-semibold text-slate-900 shadow-[0_12px_30px_rgba(53,208,186,0.25)] transition hover:opacity-90"
+        className="w-full rounded-lg bg-white py-2 font-semibold text-black transition hover:bg-gray-200"
       >
         Enviar
       </button>
