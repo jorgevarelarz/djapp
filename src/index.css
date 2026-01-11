@@ -1,63 +1,143 @@
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: dark;
-  --bb-bg: #000000;
-  --bb-surface: rgba(255, 255, 255, 0.06);
-  --bb-surface-strong: rgba(255, 255, 255, 0.12);
-  --bb-border: rgba(255, 255, 255, 0.12);
-  --bb-accent: #ffffff;
-  --bb-accent-strong: #d1d5db;
-  --bb-text: #ffffff;
-  --bb-muted: rgba(255, 255, 255, 0.6);
-}
+@layer base {
+  :root {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
 
-body {
-  min-height: 100vh;
-  background-color: var(--bb-bg);
-  background-image: none;
-  color: var(--bb-text);
-  font-family: "Manrope", "Space Grotesk", system-ui, -apple-system,
-    "Segoe UI", sans-serif;
-}
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
 
-#root {
-  min-height: 100vh;
-}
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
 
-.bb-title {
-  font-family: "Space Grotesk", "Manrope", system-ui, sans-serif;
-}
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
 
-.bb-card {
-  background: var(--bb-surface);
-  border: 1px solid var(--bb-border);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px);
-}
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
 
-.bb-card-strong {
-  background: var(--bb-surface-strong);
-  border: 1px solid var(--bb-border);
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(16px);
-}
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
 
-.bb-fade-up {
-  animation: bbFadeUp 0.6s ease both;
-}
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
 
-@keyframes bbFadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+
+    --radius: 0.5rem;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
   }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.25rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: hsl(var(--primary-foreground));
+  background-color: hsl(var(--primary));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+
+.btn-primary:hover {
+  background-color: hsl(var(--primary) / 0.9);
+}
+
+.btn-primary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px hsl(var(--ring));
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.25rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: hsl(var(--secondary-foreground));
+  background-color: hsl(var(--secondary));
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+
+.btn-secondary:hover {
+  background-color: hsl(var(--secondary) / 0.8);
+}
+
+.btn-secondary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px hsl(var(--ring));
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.input-vercel {
+  display: flex;
+  width: 100%;
+  border-radius: 0.375rem;
+  border: 1px solid hsl(var(--input));
+  background: transparent;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  color: hsl(var(--foreground));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.input-vercel::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+.input-vercel:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px hsl(var(--ring));
+}
+
+.input-vercel:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.card-vercel {
+  border-radius: 0.75rem;
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }

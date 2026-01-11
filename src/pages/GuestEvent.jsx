@@ -37,7 +37,7 @@ function PaymentPanel({ clientSecret, amountCents, onConfirm }) {
   };
 
   return (
-    <div className="bb-card rounded-2xl p-5 shadow space-y-4">
+    <div className="card-vercel rounded-2xl p-5 space-y-4">
       <div>
         <h3 className="text-lg font-semibold text-white">
           Completa la propina
@@ -52,7 +52,7 @@ function PaymentPanel({ clientSecret, amountCents, onConfirm }) {
         <button
           type="submit"
           disabled={!stripe || loading}
-          className="w-full rounded-lg bg-white py-2 font-semibold text-black transition hover:bg-gray-200 disabled:opacity-60"
+          className="btn-primary w-full h-10 disabled:opacity-60"
         >
           {loading ? "Procesando..." : "Pagar propina"}
         </button>
@@ -117,9 +117,9 @@ export default function GuestEvent() {
           <span>Invitado</span>
         </div>
 
-        <div className="bb-card rounded-2xl p-5 shadow space-y-4">
+        <div className="card-vercel rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold bb-title">Tu evento</h2>
+            <h2 className="text-2xl font-semibold">Tu evento</h2>
             <span className="text-xs uppercase tracking-[0.3em] text-white/60">
               #{joinCode || "--"}
             </span>
@@ -132,18 +132,18 @@ export default function GuestEvent() {
               type="text"
               value={joinCode}
               onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
+              className="input-vercel h-10 text-white placeholder:text-white/40"
             />
             <button
               type="submit"
-              className="rounded-lg border border-white/10 px-3 py-2 text-sm text-white/70 transition hover:border-white/30 hover:text-white"
+              className="btn-secondary h-9 px-3"
             >
               Cambiar codigo
             </button>
           </form>
         </div>
 
-        <div className="bb-card rounded-2xl p-5 shadow space-y-3">
+        <div className="card-vercel rounded-2xl p-5 space-y-3">
           <label className="block text-sm font-semibold text-white/70">
             Apodo (opcional)
           </label>
@@ -152,7 +152,7 @@ export default function GuestEvent() {
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             placeholder="Tu nombre"
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
+            className="input-vercel h-10 text-white placeholder:text-white/40"
             maxLength={40}
           />
         </div>
@@ -172,7 +172,7 @@ export default function GuestEvent() {
         ) : null}
 
         {pendingPayment && !stripePromise && (
-          <div className="bb-card rounded-2xl p-5 shadow">
+          <div className="card-vercel rounded-2xl p-5">
             <p className="text-sm text-red-300">
               Stripe no está configurado en el frontend.
             </p>

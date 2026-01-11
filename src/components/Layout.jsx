@@ -13,10 +13,10 @@ export default function Layout({ children }) {
       : "text-white/60 hover:text-white hover:bg-white/5";
 
   return (
-    <div className="flex min-h-screen flex-col bg-black text-white">
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
       <Toaster richColors theme="dark" position="top-center" />
 
-      <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-black/80 backdrop-blur-md">
+      <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <Link
             to="/"
@@ -27,7 +27,7 @@ export default function Layout({ children }) {
               alt="BeatBid logo"
               className="h-4 w-4 rounded border border-white/20 object-contain"
             />
-            <span className="bb-title text-base">BeatBid</span>
+            <span className="text-base font-semibold">BeatBid</span>
           </Link>
 
           <nav className="hidden items-center gap-2 md:flex">
@@ -47,10 +47,10 @@ export default function Layout({ children }) {
             >
               Soy DJ
             </Link>
-            <div className="mx-2 h-4 w-px bg-white/20" />
+            <div className="mx-2 h-4 w-px bg-border" />
             <Link
               to="/dj"
-              className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gray-200"
+              className="btn-primary h-9 px-4 py-2"
             >
               Iniciar Sesión
             </Link>
@@ -66,7 +66,7 @@ export default function Layout({ children }) {
         </div>
 
         {isMenuOpen && (
-          <div className="border-t border-white/10 bg-black p-4 md:hidden">
+          <div className="border-t border-border bg-background p-4 md:hidden">
             <Link
               to="/"
               className="block rounded-md px-4 py-3 hover:bg-white/10"
@@ -87,7 +87,7 @@ export default function Layout({ children }) {
 
       <main className="flex-1 w-full">{children}</main>
 
-      <footer className="border-t border-white/10 bg-black py-8">
+      <footer className="border-t border-border bg-background py-8">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 text-sm text-white/60 md:flex-row">
           <p>© 2024 BeatBid Inc.</p>
           <div className="flex gap-6">

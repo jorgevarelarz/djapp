@@ -46,10 +46,10 @@ export default function Register({ onRegisterSuccess }) {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-md bb-card p-8 rounded-3xl"
+        className="w-full max-w-md card-vercel p-8 rounded-2xl"
       >
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-semibold text-white bb-title">
+          <h2 className="text-2xl font-semibold text-white">
             Nueva Cuenta DJ
           </h2>
           <p className="text-white/60 text-sm mt-1">
@@ -63,7 +63,7 @@ export default function Register({ onRegisterSuccess }) {
             <input
               type="email"
               placeholder="Email"
-              className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 pl-12 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20"
+              className="input-vercel h-11 pl-11 text-white placeholder:text-white/40"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -75,7 +75,7 @@ export default function Register({ onRegisterSuccess }) {
             <input
               type="password"
               placeholder="Contraseña"
-              className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 pl-12 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20"
+              className="input-vercel h-11 pl-11 text-white placeholder:text-white/40"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -87,7 +87,7 @@ export default function Register({ onRegisterSuccess }) {
             <input
               type="text"
               placeholder="Código de Invitación (Opcional)"
-              className="w-full bg-white/5 text-white border border-white/10 rounded-xl py-3 pl-12 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20"
+              className="input-vercel h-11 pl-11 text-white placeholder:text-white/40"
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value)}
             />
@@ -98,7 +98,7 @@ export default function Register({ onRegisterSuccess }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-4 py-3 bg-white hover:bg-gray-200 text-black font-semibold rounded-xl transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-primary w-full h-11 mt-4"
           >
             {loading ? (
               <Loader2 className="w-5 h-5 animate-spin" />

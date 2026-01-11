@@ -28,13 +28,13 @@ export default function SongRequestForm({ onAddRequest }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="max-w-md mx-auto p-6 rounded-2xl space-y-4 bb-card"
+      className="max-w-md mx-auto p-6 rounded-2xl space-y-4 card-vercel"
     >
       <div className="space-y-1">
         <p className="text-xs uppercase tracking-[0.3em] text-white/60">
           Pedido rapido
         </p>
-        <h2 className="text-2xl font-semibold bb-title text-white">
+        <h2 className="text-2xl font-semibold text-white">
           Pide una canción
         </h2>
       </div>
@@ -42,7 +42,7 @@ export default function SongRequestForm({ onAddRequest }) {
       <input
         type="text"
         placeholder="Nombre de la canción"
-        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
+        className="input-vercel h-11 text-white placeholder:text-white/40"
         value={song}
         onChange={(e) => setSong(e.target.value)}
         maxLength={120}
@@ -52,7 +52,7 @@ export default function SongRequestForm({ onAddRequest }) {
       <input
         type="text"
         placeholder="Artista (opcional)"
-        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
+        className="input-vercel h-11 text-white placeholder:text-white/40"
         value={artist}
         onChange={(e) => setArtist(e.target.value)}
         maxLength={80}
@@ -60,7 +60,7 @@ export default function SongRequestForm({ onAddRequest }) {
 
       <textarea
         placeholder="Mensaje para el DJ (opcional)"
-        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
+        className="input-vercel min-h-[96px] text-white placeholder:text-white/40"
         rows={3}
         value={message}
         onChange={(e) => setMessage(e.target.value)}
@@ -95,7 +95,7 @@ export default function SongRequestForm({ onAddRequest }) {
 
       <button
         type="submit"
-        className="w-full rounded-lg bg-white py-2 font-semibold text-black transition hover:bg-gray-200"
+        className="btn-primary w-full h-11"
       >
         Enviar
       </button>

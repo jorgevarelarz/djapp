@@ -53,13 +53,13 @@ export default function Login({ onLoginSuccess }) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-md bb-card p-8 rounded-3xl relative overflow-hidden"
+        className="w-full max-w-md card-vercel p-8 rounded-2xl relative overflow-hidden"
       >
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-white/10 blur-[120px] rounded-full pointer-events-none" />
 
         <div className="relative z-10">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-semibold text-white mb-2 tracking-tight bb-title">
+            <h2 className="text-3xl font-semibold text-white mb-2 tracking-tight">
               DJ Access
             </h2>
             <p className="text-white/60 text-sm">Gestiona la pista de baile</p>
@@ -78,7 +78,7 @@ export default function Login({ onLoginSuccess }) {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-white/5 text-white placeholder-white/30 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                  className="input-vercel h-11 pl-11 text-white placeholder:text-white/40"
                   placeholder="dj@beatbid.app"
                   required
                 />
@@ -97,7 +97,7 @@ export default function Login({ onLoginSuccess }) {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white/5 text-white placeholder-white/30 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/20 transition-all"
+                  className="input-vercel h-11 pl-11 text-white placeholder:text-white/40"
                   placeholder="••••••••"
                   required
                 />
@@ -113,7 +113,7 @@ export default function Login({ onLoginSuccess }) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full group relative flex items-center justify-center gap-2 py-4 bg-white text-black font-semibold rounded-xl transition-all hover:bg-gray-200 disabled:opacity-70 disabled:cursor-not-allowed mt-4"
+              className="btn-primary w-full h-11 mt-4"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />

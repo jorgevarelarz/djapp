@@ -22,7 +22,7 @@ export default function Landing() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-background text-foreground">
       <main className="mx-auto max-w-5xl px-4 pb-14 pt-6">
         <section className="mx-auto max-w-2xl text-center">
           <p className="text-xs tracking-[0.35em] text-white/50">
@@ -44,18 +44,18 @@ export default function Landing() {
           <form onSubmit={onSubmit} className="mt-8">
             <label className="sr-only">Código de evento</label>
 
-            <div className="rounded-2xl bg-white/5 p-3 ring-1 ring-white/10">
+            <div className="card-vercel p-6">
               <input
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value)}
                 placeholder="Código del evento"
-                className="w-full bg-transparent px-3 py-3 text-center text-lg font-semibold tracking-widest outline-none placeholder:text-white/30"
+                className="input-vercel h-12 text-center text-lg font-semibold tracking-widest"
                 autoCapitalize="characters"
               />
               <button
                 type="submit"
                 disabled={!canEnter}
-                className="mt-3 w-full rounded-xl bg-white py-3 text-base font-semibold text-black disabled:opacity-40"
+                className="btn-primary mt-3 w-full h-11 disabled:opacity-40"
               >
                 Entrar
               </button>
@@ -71,10 +71,7 @@ export default function Landing() {
           </form>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <button
-              onClick={() => navigate("/dj")}
-              className="rounded-xl bg-white/10 px-5 py-3 text-sm font-semibold ring-1 ring-white/15 hover:bg-white/15"
-            >
+            <button onClick={() => navigate("/dj")} className="btn-secondary">
               Soy DJ: crear evento
             </button>
           </div>
@@ -82,7 +79,7 @@ export default function Landing() {
 
         <section className="mx-auto mt-14 max-w-5xl">
           <div className="grid gap-8 md:grid-cols-2">
-            <div className="rounded-2xl bg-white/5 p-6 ring-1 ring-white/10">
+            <div className="card-vercel p-6">
               <h2 className="text-2xl font-bold">Para DJs: control sin caos.</h2>
               <p className="mt-2 text-white/70">
                 Una cabina ordenada: moderación, prioridades y cola clara.
@@ -96,13 +93,13 @@ export default function Landing() {
 
               <button
                 onClick={() => navigate("/dj")}
-                className="mt-6 w-full rounded-xl bg-white/10 py-3 font-semibold ring-1 ring-white/15 hover:bg-white/15"
+                className="btn-primary mt-6 w-full h-11"
               >
                 Crear mi primer evento
               </button>
             </div>
 
-            <div className="rounded-2xl bg-white/5 p-6 ring-1 ring-white/10">
+            <div className="card-vercel p-6">
               <p className="text-sm font-semibold text-white/80">Vista cabina</p>
               <div className="mt-4 h-72 rounded-xl bg-black/40 ring-1 ring-white/10" />
               <p className="mt-3 text-xs text-white/55">
