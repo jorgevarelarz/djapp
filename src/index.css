@@ -1,143 +1,75 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
+* { box-sizing: border-box; }
 
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-
-    --radius: 0.5rem;
-  }
+:root {
+  --bg: #f8fafc;
+  --fg: #0f172a;
+  --card: #ffffff;
+  --muted: #64748b;
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --border: #e2e8f0;
 }
 
-@layer base {
-  * {
-    border-color: hsl(var(--border));
-  }
-  body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
-    font-feature-settings: "rlig" 1, "calt" 1;
-  }
+body {
+  @apply m-0 antialiased bg-white text-gray-900 font-sans;
+}
+
+.page-shell {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.card-muted {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 12px;
 }
 
 .btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 2.25rem;
-  padding: 0.5rem 1rem;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: hsl(var(--primary-foreground));
-  background-color: hsl(var(--primary));
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+  @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-white px-4 py-2;
 }
 
 .btn-primary:hover {
-  background-color: hsl(var(--primary) / 0.9);
-}
-
-.btn-primary:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 1px hsl(var(--ring));
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  pointer-events: none;
+  background: var(--primary-hover);
 }
 
 .btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 2.25rem;
-  padding: 0.5rem 1rem;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: hsl(var(--secondary-foreground));
-  background-color: hsl(var(--secondary));
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
-  transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+  @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-gray-200 bg-white px-4 py-2 text-gray-700;
 }
 
 .btn-secondary:hover {
-  background-color: hsl(var(--secondary) / 0.8);
+  background: #f1f5f9;
 }
 
-.btn-secondary:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 1px hsl(var(--ring));
+.input {
+  @apply w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition;
 }
 
-.btn-secondary:disabled {
-  opacity: 0.5;
-  pointer-events: none;
+.input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
 }
 
-.input-vercel {
-  display: flex;
-  width: 100%;
-  border-radius: 0.375rem;
-  border: 1px solid hsl(var(--input));
-  background: transparent;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.875rem;
-  color: hsl(var(--foreground));
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
-  transition: border-color 150ms ease, box-shadow 150ms ease;
-}
-
-.input-vercel::placeholder {
-  color: hsl(var(--muted-foreground));
-}
-
-.input-vercel:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 1px hsl(var(--ring));
-}
-
-.input-vercel:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.card-vercel {
-  border-radius: 0.75rem;
-  border: 1px solid hsl(var(--border));
-  background-color: hsl(var(--card));
-  color: hsl(var(--card-foreground));
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+.badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+  background: var(--card);
 }

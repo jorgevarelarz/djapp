@@ -2,27 +2,30 @@ import React, { useState } from "react";
 import DJSidebar from "./DJSidebar";
 import DJTopbar from "./DJTopbar";
 
+type Props = {
+  title?: string;
+  activeSection: string;
+  onSectionChange: (id: string) => void;
+  onLogout: () => void;
+  children: React.ReactNode;
+};
+
 export default function DJLayout({
   title,
   activeSection,
   onSectionChange,
   onLogout,
   children,
-}) {
-  const [isOpen, setIsOpen] = useState(false);
+}: Props) {
+  const [open, setOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <DJTopbar
-        title={title}
-        onMenuClick={() => setIsOpen(true)}
-        onLogout={onLogout}
-      />
-
-      <div className="mx-auto flex w-full max-w-6xl gap-6 px-6 py-8">
+    <div className="page-shell">
+      <DJTopbar title={title} onMenuClick={() => setOpen(true)} />
+      <div className="container flex gap-6 py-8">
         <DJSidebar
-          isOpen={isOpen}
-          onClose={() => setIsOpen(false)}
+          isOpen={open}
+          onClose={() => setOpen(false)}
           activeSection={activeSection}
           onSectionChange={onSectionChange}
           onLogout={onLogout}

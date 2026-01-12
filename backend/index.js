@@ -18,6 +18,9 @@ const FRONTEND_URL = process.env.FRONTEND_URL || "";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "";
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
+const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID || "";
+const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET || "";
+const SPOTIFY_REDIRECT_URI = process.env.SPOTIFY_REDIRECT_URI || "";
 
 const MAX_TITLE_LENGTH = 120;
 const MAX_ARTIST_LENGTH = 80;
@@ -27,6 +30,7 @@ const MAX_TIP_AMOUNT = 20;
 const MIN_REQUEST_INTERVAL_MS = 10000;
 const MAX_REQUESTS_PER_DEVICE = 5;
 const DEFAULT_CURRENCY = "eur";
+const VOTE_COOLDOWN_MS = 20 * 60 * 1000;
 
 if (!JWT_SECRET) {
   console.error("JWT_SECRET no configurado en el entorno.");
@@ -40,12 +44,20 @@ const allowedOrigins = FRONTEND_URL.split(",")
   .filter(Boolean);
 
 if (NODE_ENV !== "production") {
-  allowedOrigins.push("http://localhost:5173", "http://127.0.0.1:5173");
+  allowedOrigins.push(
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001"
+  );
 }
 
 app.use(
   cors({
     origin(origin, callback) {
+      if (NODE_ENV !== "production") {
+        return callback(null, true);
+      }
       if (!origin) return callback(null, true);
       if (!allowedOrigins.length || allowedOrigins.includes(origin)) {
         return callback(null, true);
@@ -189,6 +201,127 @@ function computeApplicationFee(amountCents, commissionBps) {
   return Math.max(0, Math.round((amountCents * commissionBps) / 10000));
 }
 
+function buildSpotifyAuthUrl(state) {
+  const params = new URLSearchParams({
+    response_type: "code",
+    client_id: SPOTIFY_CLIENT_ID,
+    scope: "playlist-read-private playlist-read-collaborative",
+    redirect_uri: SPOTIFY_REDIRECT_URI,
+    state,
+  });
+  return `https://accounts.spotify.com/authorize?${params.toString()}`;
+}
+
+async function exchangeSpotifyCode(code) {
+  const body = new URLSearchParams({
+    grant_type: "authorization_code",
+    code,
+    redirect_uri: SPOTIFY_REDIRECT_URI,
+  });
+  const auth = Buffer.from(
+    `${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`
+  ).toString("base64");
+  const response = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+  if (!response.ok) {
+    throw new Error("Spotify token error");
+  }
+  return response.json();
+}
+
+async function refreshSpotifyToken(refreshToken) {
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+  });
+  const auth = Buffer.from(
+    `${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`
+  ).toString("base64");
+  const response = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+  if (!response.ok) {
+    throw new Error("Spotify refresh error");
+  }
+  return response.json();
+}
+
+async function getSpotifyAccessTokenForDj(userId) {
+  let token = await dbGet(
+    `SELECT * FROM spotify_tokens WHERE djUserId = ?`,
+    [userId]
+  );
+  if (!token) {
+    return null;
+  }
+  if (Date.now() >= Number(token.expiresAt)) {
+    const refreshed = await refreshSpotifyToken(token.refreshToken);
+    const accessToken = refreshed.access_token;
+    const refreshToken = refreshed.refresh_token || token.refreshToken;
+    const expiresAt = Date.now() + Number(refreshed.expires_in || 0) * 1000;
+    await dbRun(
+      `UPDATE spotify_tokens
+       SET accessToken = ?, refreshToken = ?, expiresAt = ?, updatedAt = datetime('now')
+       WHERE djUserId = ?`,
+      [accessToken, refreshToken, expiresAt, userId]
+    );
+    token = { ...token, accessToken, refreshToken, expiresAt };
+  }
+  return token.accessToken;
+}
+
+async function fetchSpotifyPlaylistName(playlistId, accessToken) {
+  const response = await fetch(
+    `https://api.spotify.com/v1/playlists/${playlistId}?fields=name`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  );
+  if (!response.ok) {
+    throw new Error("Spotify playlist error");
+  }
+  const data = await response.json();
+  return data.name || "";
+}
+
+async function fetchSpotifyPlaylistTracks(playlistId, accessToken) {
+  const tracks = [];
+  let url = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=100&fields=items(track(id,name,artists(name),album(images))),next`;
+  while (url) {
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!response.ok) {
+      throw new Error("Spotify tracks error");
+    }
+    const data = await response.json();
+    const items = data.items || [];
+    for (const item of items) {
+      const track = item.track;
+      if (!track || !track.id) continue;
+      tracks.push({
+        trackId: track.id,
+        name: track.name || "Sin titulo",
+        artists: (track.artists || []).map((a) => a.name).join(", "),
+        image: track.album?.images?.[0]?.url || null,
+      });
+    }
+    url = data.next;
+  }
+  return tracks;
+}
+
 // Registro
 app.post("/api/register", async (req, res) => {
   const { email, password, inviteCode } = req.body;
@@ -288,6 +421,90 @@ app.post("/api/dj/events", requireAuth, requireRole("DJ"), async (req, res) => {
 });
 
 app.post(
+  "/api/dj/events/:id/playlist",
+  requireAuth,
+  requireRole("DJ"),
+  async (req, res) => {
+    const eventId = Number(req.params.id);
+    const { playlistId } = req.body;
+
+    if (!eventId || !playlistId) {
+      return sendError(res, 400, "VALIDATION_ERROR", "Datos invalidos");
+    }
+
+    if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET || !SPOTIFY_REDIRECT_URI) {
+      return sendError(
+        res,
+        500,
+        "SPOTIFY_NOT_CONFIGURED",
+        "Spotify no configurado"
+      );
+    }
+
+    try {
+      const event = await dbGet(
+        `SELECT * FROM events WHERE id = ? AND djUserId = ?`,
+        [eventId, req.user.id]
+      );
+      if (!event) {
+        return sendError(res, 404, "EVENT_NOT_FOUND", "Evento no encontrado");
+      }
+
+      const accessToken = await getSpotifyAccessTokenForDj(req.user.id);
+      if (!accessToken) {
+        return sendError(
+          res,
+          409,
+          "SPOTIFY_NOT_CONNECTED",
+          "Spotify no conectado"
+        );
+      }
+
+      const playlistName = await fetchSpotifyPlaylistName(
+        playlistId,
+        accessToken
+      );
+      const tracks = await fetchSpotifyPlaylistTracks(
+        playlistId,
+        accessToken
+      );
+
+      await dbRun(`DELETE FROM spotify_tracks WHERE playlistId = ?`, [
+        playlistId,
+      ]);
+      for (const track of tracks) {
+        await dbRun(
+          `INSERT INTO spotify_tracks (playlistId, trackId, name, artists, image, updatedAt)
+           VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+          [
+            playlistId,
+            track.trackId,
+            track.name,
+            track.artists,
+            track.image,
+          ]
+        );
+      }
+
+      await dbRun(
+        `UPDATE events
+         SET spotifyPlaylistId = ?, spotifyPlaylistName = ?
+         WHERE id = ?`,
+        [playlistId, playlistName, eventId]
+      );
+
+      const updated = await dbGet(`SELECT * FROM events WHERE id = ?`, [
+        eventId,
+      ]);
+
+      res.json({ event: updated, tracksCount: tracks.length });
+    } catch (err) {
+      res.status(500).json({ error: "Error guardando playlist" });
+    }
+  }
+);
+
+app.post(
   "/api/dj/stripe/connect",
   requireAuth,
   requireRole("DJ"),
@@ -353,6 +570,175 @@ app.get(
       });
     } catch (err) {
       res.status(500).json({ error: "Error cargando estado de Stripe" });
+    }
+  }
+);
+
+app.get(
+  "/api/dj/spotify/connect",
+  requireAuth,
+  requireRole("DJ"),
+  async (req, res) => {
+    if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET || !SPOTIFY_REDIRECT_URI) {
+      return sendError(
+        res,
+        500,
+        "SPOTIFY_NOT_CONFIGURED",
+        "Spotify no configurado"
+      );
+    }
+    try {
+      const state = crypto.randomBytes(16).toString("hex");
+      await dbRun(
+        `INSERT INTO spotify_states (state, djUserId, createdAt) VALUES (?, ?, ?)`,
+        [state, req.user.id, Date.now()]
+      );
+      const url = buildSpotifyAuthUrl(state);
+      res.json({ url });
+    } catch (err) {
+      res.status(500).json({ error: "Error creando enlace Spotify" });
+    }
+  }
+);
+
+app.get("/api/dj/spotify/callback", async (req, res) => {
+  const { code, state } = req.query;
+  if (!code || !state) {
+    return sendError(res, 400, "VALIDATION_ERROR", "Datos invalidos");
+  }
+  if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET || !SPOTIFY_REDIRECT_URI) {
+    return sendError(
+      res,
+      500,
+      "SPOTIFY_NOT_CONFIGURED",
+      "Spotify no configurado"
+    );
+  }
+
+  try {
+    const stored = await dbGet(
+      `SELECT * FROM spotify_states WHERE state = ?`,
+      [state]
+    );
+    if (!stored) {
+      return sendError(res, 400, "VALIDATION_ERROR", "Estado invalido");
+    }
+
+    await dbRun(`DELETE FROM spotify_states WHERE state = ?`, [state]);
+
+    const tokenData = await exchangeSpotifyCode(code);
+    const accessToken = tokenData.access_token;
+    let refreshToken = tokenData.refresh_token;
+    const expiresAt = Date.now() + Number(tokenData.expires_in || 0) * 1000;
+
+    if (!refreshToken) {
+      const existing = await dbGet(
+        `SELECT refreshToken FROM spotify_tokens WHERE djUserId = ?`,
+        [stored.djUserId]
+      );
+      refreshToken = existing?.refreshToken || "";
+    }
+
+    if (!refreshToken) {
+      return sendError(
+        res,
+        400,
+        "SPOTIFY_NO_REFRESH",
+        "No se pudo obtener refresh token"
+      );
+    }
+
+    await dbRun(
+      `INSERT INTO spotify_tokens (djUserId, accessToken, refreshToken, expiresAt)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(djUserId)
+       DO UPDATE SET accessToken = excluded.accessToken,
+                     refreshToken = excluded.refreshToken,
+                     expiresAt = excluded.expiresAt,
+                     updatedAt = datetime('now')`,
+      [stored.djUserId, accessToken, refreshToken, expiresAt]
+    );
+
+    const redirectBase = FRONTEND_URL || "http://localhost:5173";
+    res.redirect(`${redirectBase}/dj?spotify=connected`);
+  } catch (err) {
+    res.status(500).json({ error: "Error conectando Spotify" });
+  }
+});
+
+app.get(
+  "/api/dj/spotify/status",
+  requireAuth,
+  requireRole("DJ"),
+  async (req, res) => {
+    try {
+      const token = await dbGet(
+        `SELECT * FROM spotify_tokens WHERE djUserId = ?`,
+        [req.user.id]
+      );
+      res.json({ connected: Boolean(token) });
+    } catch (err) {
+      res.status(500).json({ error: "Error consultando Spotify" });
+    }
+  }
+);
+
+app.post(
+  "/api/dj/spotify/disconnect",
+  requireAuth,
+  requireRole("DJ"),
+  async (req, res) => {
+    try {
+      await dbRun(`DELETE FROM spotify_tokens WHERE djUserId = ?`, [
+        req.user.id,
+      ]);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: "Error desconectando Spotify" });
+    }
+  }
+);
+
+app.get(
+  "/api/dj/spotify/playlists",
+  requireAuth,
+  requireRole("DJ"),
+  async (req, res) => {
+    try {
+      const accessToken = await getSpotifyAccessTokenForDj(req.user.id);
+      if (!accessToken) {
+        return sendError(
+          res,
+          409,
+          "SPOTIFY_NOT_CONNECTED",
+          "Spotify no conectado"
+        );
+      }
+
+      const response = await fetch(
+        "https://api.spotify.com/v1/me/playlists?limit=50",
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+      if (!response.ok) {
+        return sendError(
+          res,
+          502,
+          "SPOTIFY_API_ERROR",
+          "Error consultando Spotify"
+        );
+      }
+      const data = await response.json();
+      const playlists = (data.items || []).map((item) => ({
+        id: item.id,
+        name: item.name,
+        tracksTotal: item.tracks?.total || 0,
+        image: item.images?.[0]?.url || null,
+      }));
+      res.json({ playlists });
+    } catch (err) {
+      res.status(500).json({ error: "Error cargando playlists" });
     }
   }
 );
@@ -900,6 +1286,136 @@ app.post(
     }
   }
 );
+
+app.get("/api/public/events/:joinCode/playlist", async (req, res) => {
+  const { joinCode } = req.params;
+  try {
+    const event = await dbGet(
+      `SELECT * FROM events WHERE joinCode = ?`,
+      [joinCode.trim().toUpperCase()]
+    );
+    if (!event) {
+      return sendError(res, 404, "EVENT_NOT_FOUND", "Evento no encontrado");
+    }
+    if (event.status !== "active") {
+      return sendError(res, 409, "EVENT_ENDED", "Evento finalizado");
+    }
+    if (!event.spotifyPlaylistId) {
+      return sendError(
+        res,
+        409,
+        "PLAYLIST_NOT_SET",
+        "Playlist no configurada"
+      );
+    }
+
+    const tracks = await dbAll(
+      `SELECT trackId, name, artists, image
+       FROM spotify_tracks
+       WHERE playlistId = ?
+       ORDER BY name ASC`,
+      [event.spotifyPlaylistId]
+    );
+
+    const votes = await dbAll(
+      `SELECT trackId, COUNT(*) as votes
+       FROM track_votes
+       WHERE eventId = ?
+       GROUP BY trackId`,
+      [event.id]
+    );
+
+    const voteMap = new Map(votes.map((row) => [row.trackId, row.votes]));
+    const enriched = tracks.map((track) => ({
+      ...track,
+      votes: voteMap.get(track.trackId) || 0,
+    }));
+    enriched.sort((a, b) => {
+      if (b.votes !== a.votes) return b.votes - a.votes;
+      return (a.name || "").localeCompare(b.name || "");
+    });
+
+    res.json({
+      playlistId: event.spotifyPlaylistId,
+      playlistName: event.spotifyPlaylistName || "",
+      tracks: enriched,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Error cargando playlist" });
+  }
+});
+
+app.post("/api/public/events/:joinCode/votes", async (req, res) => {
+  const { joinCode } = req.params;
+  const { trackId } = req.body;
+  if (!trackId) {
+    return sendError(res, 400, "VALIDATION_ERROR", "Track invalido");
+  }
+
+  try {
+    const event = await dbGet(
+      `SELECT * FROM events WHERE joinCode = ?`,
+      [joinCode.trim().toUpperCase()]
+    );
+    if (!event) {
+      return sendError(res, 404, "EVENT_NOT_FOUND", "Evento no encontrado");
+    }
+    if (event.status !== "active") {
+      return sendError(res, 409, "EVENT_ENDED", "Evento finalizado");
+    }
+    if (!event.spotifyPlaylistId) {
+      return sendError(
+        res,
+        409,
+        "PLAYLIST_NOT_SET",
+        "Playlist no configurada"
+      );
+    }
+
+    const track = await dbGet(
+      `SELECT trackId FROM spotify_tracks
+       WHERE playlistId = ? AND trackId = ?`,
+      [event.spotifyPlaylistId, trackId]
+    );
+    if (!track) {
+      return sendError(res, 404, "TRACK_NOT_FOUND", "Cancion no encontrada");
+    }
+
+    const deviceHash = getDeviceHash(req);
+    const lastVote = await dbGet(
+      `SELECT MAX(votedAt) as lastVote
+       FROM track_votes
+       WHERE eventId = ? AND deviceHash = ?`,
+      [event.id, deviceHash]
+    );
+    if (lastVote?.lastVote) {
+      const delta = Date.now() - Number(lastVote.lastVote);
+      if (delta < VOTE_COOLDOWN_MS) {
+        const retryAfterSeconds = Math.max(
+          1,
+          Math.ceil((VOTE_COOLDOWN_MS - delta) / 1000)
+        );
+        return sendError(
+          res,
+          429,
+          "COOLDOWN",
+          "Espera antes de volver a votar",
+          retryAfterSeconds
+        );
+      }
+    }
+
+    await dbRun(
+      `INSERT INTO track_votes (eventId, trackId, deviceHash, votedAt)
+       VALUES (?, ?, ?, ?)`,
+      [event.id, trackId, deviceHash, Date.now()]
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "Error registrando voto" });
+  }
+});
 
 app.post(
   "/api/public/requests/:id/confirm-payment",

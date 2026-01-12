@@ -45,6 +45,8 @@ function initSchema() {
           name TEXT NOT NULL,
           status TEXT NOT NULL DEFAULT 'active',
           joinCode TEXT UNIQUE NOT NULL,
+          spotifyPlaylistId TEXT,
+          spotifyPlaylistName TEXT,
           createdAt TEXT NOT NULL DEFAULT (datetime('now')),
           endedAt TEXT,
           FOREIGN KEY (djUserId) REFERENCES users(id)
@@ -99,6 +101,53 @@ function initSchema() {
       );
 
       db.run(
+        `CREATE TABLE IF NOT EXISTS spotify_tracks (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          playlistId TEXT NOT NULL,
+          trackId TEXT NOT NULL,
+          name TEXT NOT NULL,
+          artists TEXT,
+          image TEXT,
+          createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+          updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+          UNIQUE(playlistId, trackId)
+        )`
+      );
+
+      db.run(
+        `CREATE TABLE IF NOT EXISTS track_votes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          eventId INTEGER NOT NULL,
+          trackId TEXT NOT NULL,
+          deviceHash TEXT NOT NULL,
+          votedAt INTEGER NOT NULL,
+          FOREIGN KEY (eventId) REFERENCES events(id)
+        )`
+      );
+
+      db.run(
+        `CREATE TABLE IF NOT EXISTS spotify_tokens (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          djUserId INTEGER NOT NULL UNIQUE,
+          accessToken TEXT NOT NULL,
+          refreshToken TEXT NOT NULL,
+          expiresAt INTEGER NOT NULL,
+          createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+          updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (djUserId) REFERENCES users(id)
+        )`
+      );
+
+      db.run(
+        `CREATE TABLE IF NOT EXISTS spotify_states (
+          state TEXT PRIMARY KEY,
+          djUserId INTEGER NOT NULL,
+          createdAt INTEGER NOT NULL,
+          FOREIGN KEY (djUserId) REFERENCES users(id)
+        )`
+      );
+
+      db.run(
         `CREATE INDEX IF NOT EXISTS idx_song_requests_event_id
          ON song_requests(eventId)`
       );
@@ -123,10 +172,32 @@ function initSchema() {
          ON payments(requestId)`
       );
 
+      db.run(
+        `CREATE INDEX IF NOT EXISTS idx_spotify_tracks_playlist
+         ON spotify_tracks(playlistId)`
+      );
+
+      db.run(
+        `CREATE INDEX IF NOT EXISTS idx_track_votes_event
+         ON track_votes(eventId)`
+      );
+
+      db.run(
+        `CREATE INDEX IF NOT EXISTS idx_track_votes_device
+         ON track_votes(eventId, deviceHash)`
+      );
+
+      db.run(
+        `CREATE INDEX IF NOT EXISTS idx_spotify_tokens_dj_user
+         ON spotify_tokens(djUserId)`
+      );
+
       ensureSongRequestColumns();
       ensureDeviceColumns();
       ensureDjAccountColumns();
       ensurePaymentColumns();
+      ensureEventColumns();
+      ensureSpotifyColumns();
     });
   });
 }
@@ -206,6 +277,31 @@ function ensurePaymentColumns() {
     if (!columnNames.includes("updatedAt")) {
       db.run(
         `ALTER TABLE payments ADD COLUMN updatedAt TEXT NOT NULL DEFAULT (datetime('now'))`
+      );
+    }
+  });
+}
+
+function ensureEventColumns() {
+  db.all("PRAGMA table_info(events)", (err, columns) => {
+    if (err || !columns || columns.length === 0) return;
+    const columnNames = columns.map((col) => col.name);
+    if (!columnNames.includes("spotifyPlaylistId")) {
+      db.run(`ALTER TABLE events ADD COLUMN spotifyPlaylistId TEXT`);
+    }
+    if (!columnNames.includes("spotifyPlaylistName")) {
+      db.run(`ALTER TABLE events ADD COLUMN spotifyPlaylistName TEXT`);
+    }
+  });
+}
+
+function ensureSpotifyColumns() {
+  db.all("PRAGMA table_info(spotify_tokens)", (err, columns) => {
+    if (err || !columns || columns.length === 0) return;
+    const columnNames = columns.map((col) => col.name);
+    if (!columnNames.includes("updatedAt")) {
+      db.run(
+        `ALTER TABLE spotify_tokens ADD COLUMN updatedAt TEXT NOT NULL DEFAULT (datetime('now'))`
       );
     }
   });
