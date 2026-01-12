@@ -4,20 +4,22 @@ import { RequestItem } from "../context/DjContext";
 
 type Props = {
   requests: RequestItem[];
+  mode: "pending" | "queue";
+  onApprove?: (request: RequestItem) => void;
+  onReject?: (request: RequestItem) => void;
   onPlay: (id: number) => void;
   onMarkAsPlayed: (id: number) => void;
   onBanDevice: (deviceHash?: string | null) => void;
-  onAcceptPayment: (id: number) => void;
-  onRejectPayment: (id: number) => void;
 };
 
 export default function DJPanel({
   requests,
+  mode,
+  onApprove,
+  onReject,
   onPlay,
   onMarkAsPlayed,
   onBanDevice,
-  onAcceptPayment,
-  onRejectPayment,
 }: Props) {
   if (requests.length === 0) {
     return (
@@ -60,42 +62,51 @@ export default function DJPanel({
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {hasTip && req.paymentStatus === "requires_capture" && (
+                {mode === "pending" ? (
                   <>
                     <button
-                      className="btn-secondary"
-                      onClick={() => onAcceptPayment(req.id)}
+                      className="rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700"
+                      onClick={() => onApprove?.(req)}
                     >
-                      <DollarSign className="h-4 w-4" />
-                      Cobrar
+                      Aprobar
+                    </button>
+                    <button
+                      className="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
+                      onClick={() => onReject?.(req)}
+                    >
+                      Rechazar
+                    </button>
+                    <button
+                      className="rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white hover:bg-black"
+                      onClick={() => onBanDevice(req.deviceHash)}
+                    >
+                      Bloquear
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      className="btn-primary"
+                      onClick={() => onPlay(req.id)}
+                    >
+                      <Play className="h-4 w-4" />
+                      Play
                     </button>
                     <button
                       className="btn-secondary"
-                      onClick={() => onRejectPayment(req.id)}
+                      onClick={() => onMarkAsPlayed(req.id)}
                     >
-                      <X className="h-4 w-4" />
-                      Rechazar
+                      <Check className="h-4 w-4" />
+                      Hecho
+                    </button>
+                    <button
+                      className="rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white hover:bg-black"
+                      onClick={() => onBanDevice(req.deviceHash)}
+                    >
+                      Bloquear
                     </button>
                   </>
                 )}
-                <button className="btn-primary" onClick={() => onPlay(req.id)}>
-                  <Play className="h-4 w-4" />
-                  Play
-                </button>
-                <button
-                  className="btn-secondary"
-                  onClick={() => onMarkAsPlayed(req.id)}
-                >
-                  <Check className="h-4 w-4" />
-                  Hecho
-                </button>
-                <button
-                  className="btn-secondary"
-                  onClick={() => onBanDevice(req.deviceHash)}
-                >
-                  <Ban className="h-4 w-4" />
-                  Bloquear
-                </button>
               </div>
             </div>
           </div>

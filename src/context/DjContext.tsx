@@ -107,6 +107,7 @@ type DjContextValue = {
   loadPublicPlaylist: (joinCode: string) => Promise<void>;
   voteTrack: (trackId: string) => Promise<void>;
   disconnectSpotify: () => Promise<void>;
+  approveRequest: (request: RequestItem) => Promise<void>;
 };
 
 const DjContext = createContext<DjContextValue | null>(null);
@@ -557,6 +558,14 @@ export function DjProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const approveRequest = async (request: RequestItem) => {
+    if (request.paymentStatus === "requires_capture") {
+      await acceptRequest(request.id);
+      return;
+    }
+    await updateRequestStatus(request.id, "queued");
+  };
+
   const confirmPayment = async (requestId: number, paymentIntentId: string) => {
     await apiFetch(`${API_URL}/api/public/requests/${requestId}/confirm-payment`, {
       method: "POST",
@@ -746,6 +755,7 @@ export function DjProvider({ children }: { children: React.ReactNode }) {
     loadPublicPlaylist,
     voteTrack,
     disconnectSpotify,
+    approveRequest,
   };
 
   return <DjContext.Provider value={value}>{children}</DjContext.Provider>;

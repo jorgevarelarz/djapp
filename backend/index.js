@@ -804,7 +804,7 @@ app.patch(
   async (req, res) => {
     const requestId = Number(req.params.id);
     const { status, priority } = req.body;
-    const allowedStatuses = ["queued", "playing", "done", "rejected"];
+    const allowedStatuses = ["pending", "queued", "playing", "done", "rejected"];
 
     if (!requestId) {
       return sendError(res, 400, "VALIDATION_ERROR", "Solicitud invalida");
@@ -902,10 +902,18 @@ app.post(
       );
 
       if (!payment) {
-        return res.json({ ok: true, message: "Sin pago asociado" });
+        await dbRun(
+          `UPDATE song_requests SET status = ?, updatedAt = ? WHERE id = ?`,
+          ["queued", Date.now(), requestId]
+        );
+        return res.json({ ok: true, message: "Solicitud aprobada" });
       }
 
       if (payment.status === "captured") {
+        await dbRun(
+          `UPDATE song_requests SET status = ?, updatedAt = ? WHERE id = ?`,
+          ["queued", Date.now(), requestId]
+        );
         return res.json({ ok: true, message: "Pago ya capturado" });
       }
 
@@ -921,8 +929,8 @@ app.post(
       );
 
       await dbRun(
-        `UPDATE song_requests SET updatedAt = ? WHERE id = ?`,
-        [Date.now(), requestId]
+        `UPDATE song_requests SET status = ?, updatedAt = ? WHERE id = ?`,
+        ["queued", Date.now(), requestId]
       );
 
       res.json({ ok: true });
@@ -1235,7 +1243,7 @@ app.post(
       const result = await dbRun(
         `INSERT INTO song_requests
          (eventId, songTitle, artist, message, nickname, status, priority, tipAmount, deviceHash, updatedAt)
-         VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)`,
         [
           event.id,
           trimmedTitle,

@@ -30,6 +30,7 @@ export default function DjDashboard() {
     acceptRequest,
     rejectRequest,
     banDevice,
+    approveRequest,
     connectSpotify,
     loadSpotifyPlaylists,
     setEventPlaylist,
@@ -41,6 +42,12 @@ export default function DjDashboard() {
   const totalTips = sortedRequests.reduce(
     (sum, item) => sum + (item.tipAmount || 0),
     0
+  );
+  const pendingRequests = sortedRequests.filter(
+    (item) => item.status === "pending"
+  );
+  const queueRequests = sortedRequests.filter(
+    (item) => item.status === "queued" || item.status === "playing"
   );
 
   useEffect(() => {
@@ -241,12 +248,11 @@ export default function DjDashboard() {
             </div>
             <div className="p-6">
               <DJPanel
-                requests={sortedRequests}
+                requests={queueRequests}
+                mode="queue"
                 onPlay={playSong}
                 onMarkAsPlayed={markAsPlayed}
                 onBanDevice={banDevice}
-                onAcceptPayment={acceptRequest}
-                onRejectPayment={rejectRequest}
               />
             </div>
           </div>
@@ -314,7 +320,7 @@ export default function DjDashboard() {
           <div className="card">
             <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
               <h3 className="font-semibold text-gray-800">
-                Cola de reproducción
+                Solicitudes pendientes
               </h3>
               <span className="text-xs rounded-full bg-green-100 px-2 py-1 font-semibold text-green-700 animate-pulse">
                 En vivo
@@ -322,12 +328,13 @@ export default function DjDashboard() {
             </div>
             <div className="p-6">
               <DJPanel
-                requests={sortedRequests}
+                requests={pendingRequests}
+                mode="pending"
+                onApprove={approveRequest}
+                onReject={rejectRequest}
                 onPlay={playSong}
                 onMarkAsPlayed={markAsPlayed}
                 onBanDevice={banDevice}
-                onAcceptPayment={acceptRequest}
-                onRejectPayment={rejectRequest}
               />
             </div>
           </div>
