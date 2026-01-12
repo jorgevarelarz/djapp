@@ -7,6 +7,7 @@ type Props = {
   activeSection: string;
   onSectionChange: (id: string) => void;
   onLogout: () => void;
+  pendingCount?: number;
   children: React.ReactNode;
 };
 
@@ -15,6 +16,7 @@ export default function DJLayout({
   activeSection,
   onSectionChange,
   onLogout,
+  pendingCount,
   children,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -29,6 +31,7 @@ export default function DJLayout({
           activeSection={activeSection}
           onSectionChange={onSectionChange}
           onLogout={onLogout}
+          pendingCount={pendingCount}
         />
         <main className="flex-1">{children}</main>
       </div>

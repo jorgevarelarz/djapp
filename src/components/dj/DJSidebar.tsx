@@ -26,6 +26,7 @@ type Props = {
   activeSection: string;
   onSectionChange: (id: string) => void;
   onLogout: () => void;
+  pendingCount?: number;
 };
 
 export default function DJSidebar({
@@ -34,6 +35,7 @@ export default function DJSidebar({
   activeSection,
   onSectionChange,
   onLogout,
+  pendingCount = 0,
 }: Props) {
   const renderNav = () => (
     <nav className="space-y-1">
@@ -53,7 +55,12 @@ export default function DJSidebar({
             }`}
           >
             <Icon className="h-4 w-4" />
-            {label}
+            <span className="flex-1 text-left">{label}</span>
+            {id === "requests" && pendingCount > 0 && (
+              <span className="rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">
+                {pendingCount}
+              </span>
+            )}
           </button>
         );
       })}

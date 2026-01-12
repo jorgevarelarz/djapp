@@ -102,6 +102,7 @@ export default function DjDashboard() {
       activeSection={activeSection}
       onSectionChange={setActiveSection}
       onLogout={logout}
+      pendingCount={pendingRequests.length}
     >
       {activeSection === "home" && (
         <div className="space-y-6">
