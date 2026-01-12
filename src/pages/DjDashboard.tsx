@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { QRCodeCanvas } from "qrcode.react";
 import { DollarSign, Music, BarChart3 } from "lucide-react";
 import DJLayout from "../components/dj/DJLayout";
 import DJPanel from "../components/DJPanel";
@@ -43,6 +44,9 @@ export default function DjDashboard() {
     (sum, item) => sum + (item.tipAmount || 0),
     0
   );
+  const eventUrl = event
+    ? `${window.location.origin}/event/${event.joinCode}`
+    : "";
   const pendingRequests = sortedRequests.filter(
     (item) => item.status === "pending"
   );
@@ -155,6 +159,14 @@ export default function DjDashboard() {
                 <p className="mt-2 text-2xl font-mono font-bold text-indigo-600">
                   {event.joinCode}
                 </p>
+                <div className="mt-4 flex items-center gap-4">
+                  <div className="rounded-lg border border-gray-200 bg-white p-2">
+                    <QRCodeCanvas value={eventUrl} size={120} />
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Escanea para pedir canciones
+                  </div>
+                </div>
               </div>
               <div className="card p-6">
                 <h3 className="text-lg font-semibold text-gray-900">
@@ -301,6 +313,14 @@ export default function DjDashboard() {
               <p className="mt-2 text-3xl font-mono font-bold text-indigo-600">
                 {event.joinCode}
               </p>
+              <div className="mt-4 flex items-center gap-4">
+                <div className="rounded-lg border border-gray-200 bg-white p-2">
+                  <QRCodeCanvas value={eventUrl} size={120} />
+                </div>
+                <div className="text-xs text-gray-500">
+                  Escanea para pedir canciones
+                </div>
+              </div>
               {requestError && (
                 <p className="mt-3 text-sm text-red-600">{requestError}</p>
               )}
@@ -331,7 +351,7 @@ export default function DjDashboard() {
                 requests={pendingRequests}
                 mode="pending"
                 onApprove={approveRequest}
-                onReject={rejectRequest}
+                onReject={(request) => rejectRequest(request.id)}
                 onPlay={playSong}
                 onMarkAsPlayed={markAsPlayed}
                 onBanDevice={banDevice}
