@@ -253,16 +253,20 @@ export function DjProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setDjError("");
     setEventError("");
-    const { res, data } = await apiFetch(`${API_URL}/api/login`, {
-      method: "POST",
-      headers: withAuth({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ email, password }),
-    });
-    if (!res.ok) {
-      setDjError(data?.error || "Credenciales invalidas");
-      return;
+    try {
+      const { res, data } = await apiFetch(`${API_URL}/api/login`, {
+        method: "POST",
+        headers: withAuth({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) {
+        setDjError(data?.error || "Credenciales invalidas");
+        return;
+      }
+      setUser(data);
+    } catch {
+      setDjError("Error de conexión con el servidor");
     }
-    setUser(data);
   };
 
   const register = async (
@@ -272,16 +276,20 @@ export function DjProvider({ children }: { children: React.ReactNode }) {
   ) => {
     setDjError("");
     setEventError("");
-    const { res, data } = await apiFetch(`${API_URL}/api/register`, {
-      method: "POST",
-      headers: withAuth({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ email, password, inviteCode }),
-    });
-    if (!res.ok) {
-      setDjError(data?.error || "No se pudo registrar");
-      return;
+    try {
+      const { res, data } = await apiFetch(`${API_URL}/api/register`, {
+        method: "POST",
+        headers: withAuth({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ email, password, inviteCode }),
+      });
+      if (!res.ok) {
+        setDjError(data?.error || "No se pudo registrar");
+        return;
+      }
+      setDjNotice("Cuenta creada");
+    } catch {
+      setDjError("Error de conexión con el servidor");
     }
-    setDjNotice("Cuenta creada");
   };
 
   const logout = () => {
@@ -313,14 +321,18 @@ export function DjProvider({ children }: { children: React.ReactNode }) {
 
   const loadEvents = useCallback(async () => {
     if (!user) return;
-    const { res, data } = await apiFetch(`${API_URL}/api/dj/events`, {
-      headers: withAuth(),
-    });
-    if (!res.ok) return;
-    const active =
-      data.events.find((item: Event) => item.status === "active") ||
-      data.events[0];
-    if (active) setEvent(active);
+    try {
+      const { res, data } = await apiFetch(`${API_URL}/api/dj/events`, {
+        headers: withAuth(),
+      });
+      if (!res.ok) return;
+      const active =
+        data.events.find((item: Event) => item.status === "active") ||
+        data.events[0];
+      if (active) setEvent(active);
+    } catch {
+      setDjError("Error de conexión con el servidor");
+    }
   }, [user, withAuth]);
 
   const createEvent = async (name: string) => {
@@ -394,6 +406,8 @@ export function DjProvider({ children }: { children: React.ReactNode }) {
           });
         }
       }
+    } catch {
+      setDjError("Error de conexión con el servidor");
     } finally {
       requestInFlight.current = false;
       setLoadingRequests(false);
