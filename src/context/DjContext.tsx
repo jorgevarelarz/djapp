@@ -538,6 +538,7 @@ export function DjProvider({ children }: { children: React.ReactNode }) {
         method: "POST",
         headers: withAuth(),
       });
+      setRequests((prev) => prev.filter((item) => item.id !== id));
       loadRequests();
     } catch {
       setDjError("Error de conexión con el servidor");
